@@ -32,7 +32,7 @@ class SurfboardHNAP:
         return privatekey, passkey
 
     def generate_hnap_auth(self, operation):
-        privkey = self.privatekey
+        privkey = self.privatekey or 'withoutloginkey'
         curtime = str(int(time.time() * 1000))
         auth_key = curtime + '"http://purenetworks.com/HNAP1/{}"'.format(operation)
         privkey = privkey.encode()
@@ -41,10 +41,12 @@ class SurfboardHNAP:
 
     def _login_request(self, username):
         url = '{}://{}/HNAP1/'.format(self.scheme, self.host)
-        headers = {'SOAPAction': '"http://purenetworks.com/HNAP1/Login"'}
+        auth = self.generate_hnap_auth('Login')
+        headers = {'HNAP_AUTH': auth, 'SOAPAction': '"http://purenetworks.com/HNAP1/Login"'}
         payload = '{"Login":{"Action":"request","Username":"' + username + '","LoginPassword":"","Captcha":"","PrivateLogin":"LoginPassword"}}'
 
         try:
+            logger.debug("_login_request POST: headers={}, payload={}".format(headers, payload))
             r = self.s.post(url, headers=headers, data=payload, stream=True, verify=False)
             logger.debug("_login_request POST response: code={}, body={}".format(r.status_code, json.loads(r.text)))
             return r
@@ -66,7 +68,8 @@ class SurfboardHNAP:
                              'Username': '{}'.format(username)}}
 
         try:
-            r = self.s.post(url, headers=headers, cookies=cookies, json=payload)
+            logger.debug("_login_real POST: headers={}, cookies={}, payload={}".format(headers, cookies, payload))
+            r = self.s.post(url, headers=headers, cookies=cookies, json=payload, verify=False)
             logger.debug("_login_real POST response: code={}, body={}".format(r.status_code, json.loads(r.text)))
             return r
         except Exception as ex:
@@ -127,7 +130,8 @@ class SurfboardHNAP:
                                         'GetMotoStatusConnectionInfo': ''}}
 
         try:
-            r = self.s.post(url, headers=headers, cookies=cookies, json=payload)
+            logger.debug("get_status POST: headers={}, cookies={}, payload={}".format(headers, cookies, payload))
+            r = self.s.post(url, headers=headers, cookies=cookies, json=payload, verify=False)
             logger.debug("get_status POST response: status={}, body={}".format(r.status_code, json.loads(r.text)))
 
             json_response = json.loads(r.text)
@@ -172,8 +176,9 @@ class SurfboardHNAP:
                    'PrivateKey': '{}'.format(self.privatekey)}
 
         try:
-            r = self.s.get(url, headers=headers, cookies=cookies)
-            logger.debug("get_capabilities POST response: {}".format(r))
+            logger.debug("get_capabilities GET: headers={}, cookies={}".format(headers, cookies))
+            r = self.s.get(url, headers=headers, cookies=cookies, verify=False)
+            logger.debug("get_capabilities GET response: {}".format(r))
             msg = {"requestStatus": "SUCCESS", "details": r.text}
             print(json.dumps(msg))
 
@@ -193,7 +198,8 @@ class SurfboardHNAP:
                                                  'MotoStatusSecXXX': 'XXX'}}
 
         try:
-            r = self.s.post(url, headers=headers, cookies=cookies, json=payload)
+            logger.debug("reboot POST: headers={}, cookies={}, payload={}".format(headers, cookies, payload))
+            r = self.s.post(url, headers=headers, cookies=cookies, json=payload, verify=False)
             logger.debug("reboot POST response: {}".format(r))
             msg = {"requestStatus": "SUCCESS", "details": r.text}
             print(json.dumps(msg))
