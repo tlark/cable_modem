@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-import hmac
-import time
 import argparse
-import requests
+import hmac
 import json
+import logging
+import time
+from logging.config import fileConfig
 
+import requests
 # Disable warnings for ignoring SSL cert verification
 import urllib3
 
 urllib3.disable_warnings()
+
+logging.config.fileConfig('logging_config.ini')
+logger = logging.getLogger(__name__)
 
 
 class SurfboardHNAP:
@@ -24,7 +29,7 @@ class SurfboardHNAP:
         privatekey = hmac.new(pubkey + password, challenge, digestmod='sha256').hexdigest().upper()
         passkey = hmac.new(privatekey.encode(), challenge, digestmod='sha256').hexdigest().upper()
         self.privatekey = privatekey
-        return (privatekey, passkey)
+        return privatekey, passkey
 
     def generate_hnap_auth(self, operation):
         privkey = self.privatekey
@@ -41,12 +46,11 @@ class SurfboardHNAP:
 
         try:
             r = self.s.post(url, headers=headers, data=payload, stream=True, verify=False)
-
+            logger.debug("_login_request POST response: code={}, body={}".format(r.status_code, json.loads(r.text)))
             return r
         except Exception as ex:
-            print(ex)
-            returnValue = {"requestStatus": "ERROR", "message": "Login failed."}
-            print(json.dumps(returnValue))
+            logger.exception(ex)
+            print(json.dumps({"requestStatus": "ERROR", "message": "Login failed.", "details": ex}))
             exit(-1)
 
     def _login_real(self, username, cookie_id, privatekey, passkey):
@@ -63,43 +67,41 @@ class SurfboardHNAP:
 
         try:
             r = self.s.post(url, headers=headers, cookies=cookies, json=payload)
-
+            logger.debug("_login_real POST response: code={}, body={}".format(r.status_code, json.loads(r.text)))
             return r
         except Exception as ex:
-            print(ex)
-            returnValue = {"requestStatus": "ERROR", "message": "Login failed."}
-            print(json.dumps(returnValue))
+            logger.exception(ex)
+            print(json.dumps({"requestStatus": "ERROR", "message": "Login failed.", "details": ex}))
             exit(-1)
 
     def login(self, username, password):
-        self.username = username
         r = self._login_request(username)
 
         # Validate there was a response from the server
+        lrdata = None
         try:
             lrdata = json.loads(r.text)
-
         except Exception as ex:
-            print(ex)
-            returnValue = {"requestStatus": "ERROR", "message": "Unable to parse modem response."}
-            print(json.dumps(returnValue))
+            logger.exception(ex)
+            print(json.dumps({"requestStatus": "ERROR", "message": "Unable to parse modem response.", "details": ex}))
             exit(-1)
 
         if "LoginResponse" not in lrdata:
-            returnValue = {"requestStatus": "ERROR", "message": "LoginResponse not in modem response."}
-            print(json.dumps(returnValue))
+            msg = {"requestStatus": "ERROR", "message": "LoginResponse not in modem response.", "details": lrdata}
+            print(json.dumps(msg))
             exit(-1)
 
         if "LoginResult" not in lrdata['LoginResponse']:
-            returnValue = {"requestStatus": "ERROR", "message": "LoginResult not in modem LoginResponse object."}
-            print(json.dumps(returnValue))
+            msg = {"requestStatus": "ERROR", "message": "LoginResult not in modem LoginResponse object.",
+                   "details": lrdata['LoginResponse']}
+            print(json.dumps(msg))
             exit(-1)
 
         # Validate the login response was successful
-        print(lrdata)
         if lrdata['LoginResponse']['LoginResult'] != "OK":
-            returnValue = {"requestStatus": "ERROR", "message": "Login failed."}
-            print(json.dumps(returnValue))
+            msg = {"requestStatus": "ERROR", "message": "Login failed.",
+                   "details": lrdata['LoginResponse']['LoginResult']}
+            print(json.dumps(msg))
             exit(-1)
 
         cookie_id = lrdata['LoginResponse']['Cookie']
@@ -126,40 +128,39 @@ class SurfboardHNAP:
 
         try:
             r = self.s.post(url, headers=headers, cookies=cookies, json=payload)
+            logger.debug("get_status POST response: status={}, body={}".format(r.status_code, json.loads(r.text)))
 
-            jsonResponse = json.loads(r.text)
-            print(jsonResponse)
+            json_response = json.loads(r.text)
 
             # Parse the results to a simplified object
-            returnValue = {"requestStatus": "SUCCESS",
-                           "data": {
-                               "softwareVersion":
-                                   jsonResponse['GetMultipleHNAPsResponse']['GetMotoStatusSoftwareResponse'][
-                                       'StatusSoftwareSfVer'],
-                               "macAddress": jsonResponse['GetMultipleHNAPsResponse']['GetMotoStatusSoftwareResponse'][
-                                   'StatusSoftwareMac'],
-                               "serialNumber":
-                                   jsonResponse['GetMultipleHNAPsResponse']['GetMotoStatusSoftwareResponse'][
-                                       'StatusSoftwareSerialNum'],
-                               "operatorSoftwareVersion":
-                                   jsonResponse['GetMultipleHNAPsResponse']['GetMotoStatusSoftwareResponse'][
-                                       'StatusSoftwareCustomerVer'],
-                               "wanStatus": jsonResponse['GetMultipleHNAPsResponse']['GetHomeConnectionResponse'][
-                                   'MotoHomeOnline'],
-                               "systemUptime":
-                                   jsonResponse['GetMultipleHNAPsResponse']['GetMotoStatusConnectionInfoResponse'][
-                                       'MotoConnSystemUpTime'],
-                               "networkAccess":
-                                   jsonResponse['GetMultipleHNAPsResponse']['GetMotoStatusConnectionInfoResponse'][
-                                       'MotoConnNetworkAccess'],
-                           }}
+            msg = {"requestStatus": "SUCCESS",
+                   "data": {
+                       "softwareVersion":
+                           json_response['GetMultipleHNAPsResponse']['GetMotoStatusSoftwareResponse'][
+                               'StatusSoftwareSfVer'],
+                       "macAddress": json_response['GetMultipleHNAPsResponse']['GetMotoStatusSoftwareResponse'][
+                           'StatusSoftwareMac'],
+                       "serialNumber":
+                           json_response['GetMultipleHNAPsResponse']['GetMotoStatusSoftwareResponse'][
+                               'StatusSoftwareSerialNum'],
+                       "operatorSoftwareVersion":
+                           json_response['GetMultipleHNAPsResponse']['GetMotoStatusSoftwareResponse'][
+                               'StatusSoftwareCustomerVer'],
+                       "wanStatus": json_response['GetMultipleHNAPsResponse']['GetHomeConnectionResponse'][
+                           'MotoHomeOnline'],
+                       "systemUptime":
+                           json_response['GetMultipleHNAPsResponse']['GetMotoStatusConnectionInfoResponse'][
+                               'MotoConnSystemUpTime'],
+                       "networkAccess":
+                           json_response['GetMultipleHNAPsResponse']['GetMotoStatusConnectionInfoResponse'][
+                               'MotoConnNetworkAccess'],
+                   }}
 
-            print(json.dumps(returnValue))
+            print(json.dumps(msg))
 
         except Exception as ex:
-            print(ex)
-            returnValue = {"requestStatus": "ERROR", "message": "Failed to retrieve status."}
-            print(json.dumps(returnValue))
+            logger.exception(ex)
+            print(json.dumps({"requestStatus": "ERROR", "message": "Get status FAILED.", "details": ex}))
             exit(-1)
 
     def get_capabilities(self):
@@ -172,14 +173,13 @@ class SurfboardHNAP:
 
         try:
             r = self.s.get(url, headers=headers, cookies=cookies)
-            print(r)
-            returnValue = {"requestStatus": "SUCCESS"}
-            print(json.dumps(returnValue))
+            logger.debug("get_capabilities POST response: {}".format(r))
+            msg = {"requestStatus": "SUCCESS", "details": r.text}
+            print(json.dumps(msg))
 
         except Exception as ex:
-            print(ex)
-            returnValue = {"requestStatus": "ERROR", "message": "Get capabilities FAILED."}
-            print(json.dumps(returnValue))
+            logger.exception(ex)
+            print(json.dumps({"requestStatus": "ERROR", "message": "Get capabilities FAILED.", "details": ex}))
             exit(-1)
 
     def reboot(self):
@@ -194,13 +194,13 @@ class SurfboardHNAP:
 
         try:
             r = self.s.post(url, headers=headers, cookies=cookies, json=payload)
-            returnValue = {"requestStatus": "SUCCESS"}
-            print(json.dumps(returnValue))
+            logger.debug("reboot POST response: {}".format(r))
+            msg = {"requestStatus": "SUCCESS", "details": r.text}
+            print(json.dumps(msg))
 
         except Exception as ex:
-            print(ex)
-            returnValue = {"requestStatus": "ERROR", "message": "Reboot failed."}
-            print(json.dumps(returnValue))
+            logger.exception(ex)
+            print(json.dumps({"requestStatus": "ERROR", "message": "Reboot FAILED.", "details": ex}))
             exit(-1)
 
 
@@ -226,6 +226,8 @@ if __name__ == '__main__':
     h = SurfboardHNAP(scheme, host)
     h.login(username, password)
     h.get_status()
-    h.get_capabilities()
+
+    if args.capabilities:
+        h.get_capabilities()
     if args.reboot:
-        r = h.reboot()
+        h.reboot()
