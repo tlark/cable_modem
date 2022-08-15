@@ -24,10 +24,11 @@ class SurfboardHNAP:
         self.cookie_id = None
         self.host = host
         self.scheme = scheme
+        self.digestmod = 'md5'
 
     def generate_keys(self, challenge, pubkey, password):
-        privatekey = hmac.new(pubkey + password, challenge, digestmod='sha256').hexdigest().upper()
-        passkey = hmac.new(privatekey.encode(), challenge, digestmod='sha256').hexdigest().upper()
+        privatekey = hmac.new(pubkey + password, challenge, digestmod=self.digestmod).hexdigest().upper()
+        passkey = hmac.new(privatekey.encode(), challenge, digestmod=self.digestmod).hexdigest().upper()
         self.privatekey = privatekey
         return privatekey, passkey
 
@@ -36,7 +37,7 @@ class SurfboardHNAP:
         curtime = str(int(time.time() * 1000))
         auth_key = curtime + '"http://purenetworks.com/HNAP1/{}"'.format(operation)
         privkey = privkey.encode()
-        auth = hmac.new(privkey, auth_key.encode(), digestmod='sha256')
+        auth = hmac.new(privkey, auth_key.encode(), digestmod=self.digestmod)
         return auth.hexdigest().upper() + ' ' + curtime
 
     def _login_request(self, username):
