@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-import argparse
 import hmac
 import json
 import logging
@@ -9,6 +7,9 @@ from logging.config import fileConfig
 import requests
 # Disable warnings for ignoring SSL cert verification
 import urllib3
+from requests import Response
+
+from models import ConnectionSummary, ConnectionDetails
 
 urllib3.disable_warnings()
 
@@ -32,77 +33,79 @@ class HNAPSession:
                                          digestmod=self.digestmod).hexdigest().upper()
         self.cookie_id = cookie_id
 
-    def authenticate_operation(self, operation):
+    def authenticate_operation(self, operation) -> str:
         now = str(int(time.time() * 1000))
         auth_key = '{}"http://purenetworks.com/HNAP1/{}"'.format(now, operation)
         key = (self.private_key or 'withoutloginkey').encode()
         auth = hmac.new(key, auth_key.encode(), digestmod=self.digestmod)
         return '{} {}'.format(auth.hexdigest().upper(), now)
 
-    def get_cookies(self):
+    def get_cookies(self) -> dict:
         return {'uid': '{}'.format(self.cookie_id),
                 'PrivateKey': '{}'.format(self.private_key)}
 
 
 class HNAPCommand:
-    def __init__(self, operation, payload_data=None):
+    def __init__(self, operation, payload_default='', read_only=True):
         self.operation = operation
-        self.payload_data = payload_data
+        self.payload_default = payload_default
+        self.read_only = read_only
 
     def __str__(self):
         return '{} (operation={})'.format(self.__class__.__name__, self.operation)
 
-    def build_payload_data(self, **kwargs):
-        return self.payload_data
+    def build_payload_data(self, **kwargs) -> str:
+        return self.payload_default
 
-    def execute(self, session, **kwargs):
+    def execute(self, session: HNAPSession, **kwargs) -> dict:
         url = '{}://{}/HNAP1/'.format(session.scheme, session.host)
         auth = session.authenticate_operation(self.operation)
         headers = {'HNAP_AUTH': auth, 'SOAPAction': '"http://purenetworks.com/HNAP1/{}"'.format(self.operation)}
         cookies = session.get_cookies()
         body = {self.operation: self.build_payload_data(**kwargs)}
 
-        try:
-            logger.debug(">>>> {}: url={}, headers={}, cookies={}, body={}".format(self, url, headers, cookies, body))
-            r = session.http_session.post(url, headers=headers, cookies=cookies, json=body, verify=False)
-            logger.debug("<<<< {}: url={}, code={}, body={}".format(self, url, r.status_code, json.loads(r.text)))
-            return r
-        except Exception as ex:
-            logger.exception(ex)
-            exit(-1)
+        logger.debug(">>>> {}: url={}, headers={}, cookies={}, body={}".format(self, url, headers, cookies, body))
+        resp = session.http_session.post(url, headers=headers, cookies=cookies, json=body, verify=False, timeout=(3.0, 10.0))
+        logger.debug("<<<< {}: url={}, code={}, body={}".format(self, url, resp.status_code, json.loads(resp.text)))
+        return self.validate_response(resp)
 
-    def validate_response(self, response):
+    def validate_response(self, response: Response) -> dict:
         if response.status_code >= 300:
             raise ValueError('{}: Invalid response code={}'.format(self, response.status_code))
+        body = json.loads(response.text)
+        return self.validate_response_body(body)
+
+    def validate_response_body(self, body: dict) -> dict:
+        # Each operation response has the same pattern (e.g. Login operation has LoginResponse key)
+        operation_response_key = '{}Response'.format(self.operation)
+        operation_response = body.get(operation_response_key)
+        if not operation_response:
+            raise ValueError('Missing {} in {}'.format(operation_response_key, body))
+
+        # Each operation response has a result code where the key is the same pattern
+        # (e.g. Login result code key is LoginResult)
+        operation_result_key = '{}Result'.format(self.operation)
+        operation_result = operation_response.get(operation_result_key)
+        if operation_result != 'OK':
+            raise ValueError('Invalid {}={}'.format(operation_result_key, operation_result))
+
+        return operation_response
 
 
 class LoginRequest(HNAPCommand):
     def __init__(self):
         super().__init__('Login')
 
-    def build_payload_data(self, **kwargs):
+    def build_payload_data(self, **kwargs) -> dict:
         return {'Action': 'request',
                 'Captcha': '',
                 'PrivateLogin': 'LoginPassword',
                 'Username': kwargs['username'],
                 'LoginPassword': ''}
 
-    def validate_response(self, response):
-        body = json.loads(response.text)
-
-        login_response = body.get('LoginResponse')
-        if not login_response:
-            raise ValueError('Missing LoginResponse in {}'.format(body))
-
-        login_result = login_response.get('LoginResult')
-        if login_result != 'OK':
-            raise ValueError('Invalid LoginResult={}'.format(login_result))
-
-        return login_response
-
 
 class Login(LoginRequest):
-    def build_payload_data(self, **kwargs):
+    def build_payload_data(self, **kwargs) -> dict:
         return {'Action': 'login',
                 'Captcha': '',
                 'PrivateLogin': 'LoginPassword',
@@ -110,42 +113,31 @@ class Login(LoginRequest):
                 'LoginPassword': kwargs['encoded_password']}
 
 
-class GetHomeAddress(HNAPCommand):
-    def __init__(self):
-        super().__init__('GetHomeAddress')
-
-    def build_payload_data(self, **kwargs):
-        return ''
-
-
-class GetHomeConnection(HNAPCommand):
-    def __init__(self):
-        super().__init__('GetHomeConnection')
-
-    def build_payload_data(self, **kwargs):
-        return ''
-
-
 class GetMultipleCommands(HNAPCommand):
-    def __init__(self, commands):
+    def __init__(self, commands: list):
         super().__init__('GetMultipleHNAPs')
         self.commands = commands
 
-    def build_payload_data(self, **kwargs):
+    def build_payload_data(self, **kwargs) -> dict:
         payload_data = {}
         for command in self.commands:
             payload_data[command.operation] = command.build_payload_data(**kwargs)
         return payload_data
 
+    def validate_response(self, response) -> dict:
+        multiple_commands_response = super().validate_response(response)
+        for command in self.commands:
+            command.validate_response_body(multiple_commands_response)
+        return multiple_commands_response
 
-class HNAPServer:
-    def login(self, scheme, host, username, password):
+
+class HNAPSystem:
+    def login(self, scheme, host, username, password) -> HNAPSession:
         session = HNAPSession(host, scheme)
 
         # Ask server to encode credentials
         command = LoginRequest()
-        resp = command.execute(session, username=username, password=password)
-        login_response = command.validate_response(resp)
+        login_response = command.execute(session, username=username, password=password)
 
         cookie_id = login_response['Cookie']
         public_key = login_response['PublicKey']
@@ -154,40 +146,27 @@ class HNAPServer:
         session.authenticate(challenge.encode(), public_key.encode(), password.encode(), cookie_id)
 
         command = Login()
-        resp = command.execute(session, username=username, encoded_password=session.encoded_password)
-        command.validate_response(resp)
+        command.execute(session, username=username, encoded_password=session.encoded_password)
 
         return session
 
-    def logout(self):
+    def logout(self, session: HNAPSession):
         raise NotImplemented
 
-    def get_commands(self, session):
+    def get_commands(self, session: HNAPSession) -> list:
         raise NotImplemented
 
-    def get_status(self, session):
+    def get_connection_summary(self, session: HNAPSession) -> ConnectionSummary:
         raise NotImplemented
 
-    def do_command(self, session, command, **kwargs):
+    def get_connection_details(self, session: HNAPSession) -> ConnectionDetails:
+        raise NotImplemented
+
+    def get_events(self, session: HNAPSession) -> list:
+        raise NotImplemented
+
+    def reboot(self, session: HNAPSession):
+        raise NotImplemented
+
+    def do_command(self, session: HNAPSession, command: HNAPCommand, **kwargs) -> dict:
         return command.execute(session, **kwargs)
-
-
-def get_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--scheme', default='http', help='URL scheme (Default: http)')
-    parser.add_argument('--host', default='192.168.100.1', help='Hostname or IP of your modem (Default: 192.168.100.1)')
-    parser.add_argument('--username', default='admin', help='Admin username (Default: admin)')
-    parser.add_argument('--password', default='motorola', help='Admin password (Default: motorola)')
-
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    args = get_arguments()
-
-    server = HNAPServer()
-    hnap_session = server.login(args.scheme, args.host, args.username, args.password)
-
-    server.do_command(hnap_session, GetHomeAddress())
-    server.do_command(hnap_session, GetHomeConnection())
-    server.do_command(hnap_session, GetMultipleCommands([GetHomeConnection(), GetHomeAddress()]))
