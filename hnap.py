@@ -47,11 +47,10 @@ class HNAPSession:
 class HNAPCommand:
     def __init__(self, operation, payload_data=None):
         self.operation = operation
-        self.soap_action = 'SOAPAction'
         self.payload_data = payload_data
 
     def __str__(self):
-        return '{} (operation={}): '.format(self.__class__.__name__, self.operation)
+        return '{} (operation={})'.format(self.__class__.__name__, self.operation)
 
     def build_payload_data(self, **kwargs):
         return self.payload_data
@@ -59,7 +58,7 @@ class HNAPCommand:
     def execute(self, session, **kwargs):
         url = '{}://{}/HNAP1/'.format(session.scheme, session.host)
         auth = session.authenticate_operation(self.operation)
-        headers = {'HNAP_AUTH': auth, self.soap_action: '"http://purenetworks.com/HNAP1/{}"'.format(self.operation)}
+        headers = {'HNAP_AUTH': auth, 'SOAPAction': '"http://purenetworks.com/HNAP1/{}"'.format(self.operation)}
         cookies = session.get_cookies()
         body = {self.operation: self.build_payload_data(**kwargs)}
 
@@ -71,6 +70,10 @@ class HNAPCommand:
         except Exception as ex:
             logger.exception(ex)
             exit(-1)
+
+    def validate_response(self, response):
+        if response.status_code >= 300:
+            raise ValueError('{}: Invalid response code={}'.format(self, response.status_code))
 
 
 class LoginRequest(HNAPCommand):
@@ -84,11 +87,21 @@ class LoginRequest(HNAPCommand):
                 'Username': kwargs['username'],
                 'LoginPassword': ''}
 
+    def validate_response(self, response):
+        body = json.loads(response.text)
 
-class Login(HNAPCommand):
-    def __init__(self):
-        super().__init__('Login')
+        login_response = body.get('LoginResponse')
+        if not login_response:
+            raise ValueError('Missing LoginResponse in {}'.format(body))
 
+        login_result = login_response.get('LoginResult')
+        if login_result != 'OK':
+            raise ValueError('Invalid LoginResult={}'.format(login_result))
+
+        return login_response
+
+
+class Login(LoginRequest):
     def build_payload_data(self, **kwargs):
         return {'Action': 'login',
                 'Captcha': '',
@@ -132,36 +145,17 @@ class HNAPServer:
         # Ask server to encode credentials
         command = LoginRequest()
         resp = command.execute(session, username=username, password=password)
-        body = json.loads(resp.text)
+        login_response = command.validate_response(resp)
 
-        if "LoginResponse" not in body:
-            msg = {"requestStatus": "ERROR", "message": "LoginResponse not in modem response.", "details": body}
-            print(json.dumps(msg))
-            exit(-1)
-
-        if "LoginResult" not in body['LoginResponse']:
-            msg = {"requestStatus": "ERROR", "message": "LoginResult not in modem LoginResponse object.",
-                   "details": body['LoginResponse']}
-            print(json.dumps(msg))
-            exit(-1)
-
-        # Validate the login response was successful
-        if body['LoginResponse']['LoginResult'] != "OK":
-            msg = {"requestStatus": "ERROR", "message": "Login failed.",
-                   "details": body['LoginResponse']['LoginResult']}
-            print(json.dumps(msg))
-            exit(-1)
-
-        cookie_id = body['LoginResponse']['Cookie']
-        public_key = body['LoginResponse']['PublicKey']
-        challenge = body['LoginResponse']['Challenge']
+        cookie_id = login_response['Cookie']
+        public_key = login_response['PublicKey']
+        challenge = login_response['Challenge']
 
         session.authenticate(challenge.encode(), public_key.encode(), password.encode(), cookie_id)
 
         command = Login()
         resp = command.execute(session, username=username, encoded_password=session.encoded_password)
-        body = json.loads(resp.text)
-        # TODO: Verify {'LoginResponse': {'LoginResult': 'OK'}}
+        command.validate_response(resp)
 
         return session
 
