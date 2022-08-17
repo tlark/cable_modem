@@ -34,7 +34,7 @@ class HNAPSession:
 
     def authenticate_operation(self, operation):
         now = str(int(time.time() * 1000))
-        auth_key = '{}http://purenetworks.com/HNAP1/{}'.format(now, operation)
+        auth_key = '{}"http://purenetworks.com/HNAP1/{}"'.format(now, operation)
         key = (self.private_key or 'withoutloginkey').encode()
         auth = hmac.new(key, auth_key.encode(), digestmod=self.digestmod)
         return '{} {}'.format(auth.hexdigest().upper(), now)
@@ -116,7 +116,6 @@ class GetHomeConnection(HNAPCommand):
 class GetMultipleCommands(HNAPCommand):
     def __init__(self, commands):
         super().__init__('GetMultipleHNAPs')
-        # self.soap_action = 'SOAPACTION'
         self.commands = commands
 
     def build_payload_data(self, **kwargs):
@@ -185,8 +184,6 @@ def get_arguments():
     parser.add_argument('--host', default='192.168.100.1', help='Hostname or IP of your modem (Default: 192.168.100.1)')
     parser.add_argument('--username', default='admin', help='Admin username (Default: admin)')
     parser.add_argument('--password', default='motorola', help='Admin password (Default: motorola)')
-    parser.add_argument('--reboot', action='store_true', help="Reboots the modem")
-    parser.add_argument('--capabilities', action='store_true', help="Prints SOAPActions supported")
 
     return parser.parse_args()
 
@@ -197,6 +194,6 @@ if __name__ == '__main__':
     server = HNAPServer()
     hnap_session = server.login(args.scheme, args.host, args.username, args.password)
 
-    # server.do_command(hnap_session, GetHomeAddress())
-    # server.do_command(hnap_session, GetHomeConnection())
+    server.do_command(hnap_session, GetHomeAddress())
+    server.do_command(hnap_session, GetHomeConnection())
     server.do_command(hnap_session, GetMultipleCommands([GetHomeConnection(), GetHomeAddress()]))
