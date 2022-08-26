@@ -1,1 +1,5 @@
 /.idea/
+/venv/
+/details/
+/events/
+/summary/
