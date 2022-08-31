@@ -1,20 +1,10 @@
 #!/bin/bash
 
-#id="motorola"
-#scheme="https"
-#host="192.168.100.1"
-#username="admin"
-#password="abcde12345"
-id="arris"
-scheme="https"
-host="192.168.100.1"
-username="admin"
-password="Abcde12345!"
-
+device="${1}"
 actions="device summary events details"
 for action in ${actions}
 do
-  mkdir -p "${action}" > /dev/null 2>&1
+  mkdir -p "${device}/${action}" > /dev/null 2>&1
 done
 
 while true
@@ -22,16 +12,18 @@ do
   unique="$(date +%Y%m%d_%H%M%S)"
   success=0
   sleep_time=300
-  printf "$(date "+%D %T") Gathering stats..."
+  printf "$(date "+%D %T") Gathering ${device} stats..."
   for action in ${actions}
   do
     printf "${action}..."
-    python motorola.py --scheme https --username admin --password abcde12345 "${action}" > "${action}/${unique}.json" 2> "${action}/${unique}.err"
+    fpath="${device}/${action}/${unique}"
+
+    python cable_modem.py "${device}" "${action}" > "${fpath}.json" 2> "${fpath}.err"
     success=$?
     if [ ${success} -eq 0 ]
     then
       sleep_time=300
-      rm -f "${action}/${unique}.err"
+      rm -f "${fpath}.err"
     else
       sleep_time=30
       printf "FAILED..."

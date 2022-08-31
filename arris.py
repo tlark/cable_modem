@@ -1,5 +1,3 @@
-import argparse
-import json
 import logging
 from logging.config import fileConfig
 
@@ -169,36 +167,3 @@ class ArrisSystem(HNAPSystem):
 
     def reboot(self, session: HNAPSession):
         self.do_command(session, Reboot())
-
-
-def get_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--scheme', default='http', help='URL scheme')
-    parser.add_argument('--host', default='192.168.100.1', help='Hostname or IP of your modem')
-    parser.add_argument('--username', default='admin', help='Admin username')
-    parser.add_argument('--password', default='arris', help='Admin password')
-    parser.add_argument('action', default='test', choices=['test', 'device', 'summary', 'details', 'events', 'reboot'])
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    args = get_arguments()
-
-    system = ArrisSystem()
-    hnap_session = system.login(args.scheme, args.host, args.username, args.password)
-
-    if args.action == 'test':
-        for command in system.get_commands(hnap_session):
-            if command.read_only:
-                logger.info('Testing {}...'.format(command))
-                print(json.dumps(system.do_command(hnap_session, command), default=lambda o: o.__dict__))
-    elif args.action == 'device':
-        print(json.dumps(system.get_device_info(hnap_session), default=lambda o: o.__dict__))
-    elif args.action == 'summary':
-        print(json.dumps(system.get_connection_summary(hnap_session), default=lambda o: o.__dict__))
-    elif args.action == 'details':
-        print(json.dumps(system.get_connection_details(hnap_session), default=lambda o: o.__dict__))
-    elif args.action == 'events':
-        print(json.dumps(system.get_events(hnap_session), default=lambda o: o.__dict__))
-    elif args.action == 'reboot':
-        system.reboot(hnap_session)
