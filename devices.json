@@ -1,0 +1,29 @@
+{
+  "arris": {
+    "scheme": "https",
+    "host": "192.168.100.1",
+    "username": "admin",
+    "password": "Abcde12345!",
+    "supported_actions": [
+      "test",
+      "device",
+      "summary",
+      "events",
+      "details",
+      "reboot"
+    ]
+  },
+  "motorola": {
+    "scheme": "https",
+    "host": "192.168.100.1",
+    "username": "admin",
+    "password": "abcde12345",
+    "supported_actions": [
+      "test",
+      "summary",
+      "events",
+      "details",
+      "reboot"
+    ]
+  }
+}

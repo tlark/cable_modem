@@ -9,7 +9,7 @@ import requests
 import urllib3
 from requests import Response
 
-from models import ConnectionSummary, ConnectionDetails
+from models import ConnectionSummary, ConnectionDetails, DeviceInfo
 
 urllib3.disable_warnings()
 
@@ -154,6 +154,9 @@ class HNAPSystem:
         raise NotImplemented
 
     def get_commands(self, session: HNAPSession) -> list:
+        raise NotImplemented
+
+    def get_device_info(self, session: HNAPSession) -> DeviceInfo:
         raise NotImplemented
 
     def get_connection_summary(self, session: HNAPSession) -> ConnectionSummary:

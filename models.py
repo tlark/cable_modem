@@ -1,6 +1,17 @@
 from collections import OrderedDict
 
 
+class DeviceInfo:
+    def __init__(self):
+        self.model = None
+        self.serial_number = None
+        self.mac_address = None
+        self.firmware_version = None
+        self.downstream_freq = None
+        self.downstream_power = None
+        self.downstream_snr = None
+
+
 class ConnectionSummary:
     def __init__(self):
         self.ip_address = None
