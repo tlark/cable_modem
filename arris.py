@@ -1,12 +1,6 @@
-import logging
-from logging.config import fileConfig
-
-from hnap import HNAPSystem, HNAPCommand, HNAPSession, GetMultipleCommands
+from hnap import HNAPSystem, HNAPCommand, HNAPSession, GetMultipleCommands, Logout
 from models import ConnectionSummary, ConnectionDetails, EventLogEntry, DownstreamChannelStats, UpstreamChannelStats, \
     DeviceInfo
-
-logging.config.fileConfig('logging_config.ini')
-logger = logging.getLogger(__name__)
 
 
 class SetStatusSecuritySettings(HNAPCommand):
@@ -26,6 +20,7 @@ class ArrisSystem(HNAPSystem):
     def get_commands(self, session: HNAPSession) -> list:
         return [HNAPCommand('GetHomeAddress'),
                 HNAPCommand('GetHomeConnection'),
+                # HNAPCommand('GetTimeSettings', method='GET'),
                 HNAPCommand('GetArrisConfigurationInfo'),
                 HNAPCommand('GetArrisDeviceStatus'),
                 HNAPCommand('GetArrisRegisterInfo'),
@@ -40,6 +35,7 @@ class ArrisSystem(HNAPSystem):
                 HNAPCommand('GetCustomerStatusUpstreamChannelInfo'),
                 HNAPCommand('GetCustomerStatusXXX'),
                 HNAPCommand('GetArrisXXX'),
+                Logout(),
                 Reboot()]
 
     def get_device_info(self, session: HNAPSession) -> DeviceInfo:

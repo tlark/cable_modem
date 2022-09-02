@@ -1,11 +1,5 @@
-import logging
-from logging.config import fileConfig
-
 from hnap import HNAPSystem, HNAPCommand, HNAPSession, GetMultipleCommands
 from models import ConnectionSummary, ConnectionDetails, EventLogEntry, DownstreamChannelStats, UpstreamChannelStats
-
-logging.config.fileConfig('logging_config.ini')
-logger = logging.getLogger(__name__)
 
 
 class SetStatusSecuritySettings(HNAPCommand):

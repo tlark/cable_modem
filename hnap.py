@@ -13,7 +13,7 @@ from models import ConnectionSummary, ConnectionDetails, DeviceInfo
 
 urllib3.disable_warnings()
 
-logging.config.fileConfig('logging_config.ini')
+logging.config.fileConfig('logging_config.ini', disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
 
@@ -46,13 +46,14 @@ class HNAPSession:
 
 
 class HNAPCommand:
-    def __init__(self, operation, payload_default='', read_only=True):
+    def __init__(self, operation, payload_default='', read_only=True, method='POST'):
         self.operation = operation
         self.payload_default = payload_default
         self.read_only = read_only
+        self.method = method
 
     def __str__(self):
-        return '{} (operation={})'.format(self.__class__.__name__, self.operation)
+        return '{} ({} operation={})'.format(self.__class__.__name__, self.method, self.operation)
 
     def build_payload_data(self, **kwargs) -> str:
         return self.payload_default
@@ -65,13 +66,13 @@ class HNAPCommand:
         body = {self.operation: self.build_payload_data(**kwargs)}
 
         logger.debug(">>>> {}: url={}, headers={}, cookies={}, body={}".format(self, url, headers, cookies, body))
-        resp = session.http_session.post(url, headers=headers, cookies=cookies, json=body, verify=False, timeout=(3.0, 10.0))
-        logger.debug("<<<< {}: url={}, code={}, body={}".format(self, url, resp.status_code, json.loads(resp.text)))
+        resp = session.http_session.request(self.method, url, headers=headers, cookies=cookies, json=body, verify=False, timeout=(3.0, 10.0))
+        logger.debug("<<<< {}: url={}, code={}, body={}".format(self, url, resp.status_code, resp.text))
         return self.validate_response(resp)
 
     def validate_response(self, response: Response) -> dict:
-        if response.status_code >= 300:
-            raise ValueError('{}: Invalid response code={}'.format(self, response.status_code))
+        if not response.ok:
+            raise ValueError('{}: Invalid response; code={}, body={}'.format(self, response.status_code, response.text))
         body = json.loads(response.text)
         return self.validate_response_body(body)
 
@@ -120,7 +121,7 @@ class Logout(HNAPCommand):
     def build_payload_data(self, **kwargs) -> dict:
         return {'Action': 'logout',
                 'Captcha': '',
-                'Username': kwargs['username']}
+                'Username': kwargs.get('username', 'admin')}
 
 
 class GetMultipleCommands(HNAPCommand):
