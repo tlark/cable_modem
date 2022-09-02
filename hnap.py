@@ -2,6 +2,7 @@ import hmac
 import json
 import logging
 import time
+from datetime import datetime, timedelta
 from logging.config import fileConfig
 
 import requests
@@ -18,14 +19,19 @@ logger = logging.getLogger(__name__)
 
 
 class HNAPSession:
-    def __init__(self, host, scheme):
+    def __init__(self, host, scheme, username, password):
         self.scheme = scheme
         self.host = host
+        self.username = username
+        self.password = password
+
         self.http_session = requests.Session()
         self.private_key = None
         self.cookie_id = None
         self.digestmod = 'md5'
         self.encoded_password = None
+        self.request_ts = None
+        self.max_inactive = timedelta(seconds=600)
 
     def authenticate(self, challenge, public_key, password, cookie_id):
         self.private_key = hmac.new(public_key + password, challenge, digestmod=self.digestmod).hexdigest().upper()
@@ -33,7 +39,7 @@ class HNAPSession:
                                          digestmod=self.digestmod).hexdigest().upper()
         self.cookie_id = cookie_id
 
-    def authenticate_operation(self, operation) -> str:
+    def authenticate_operation(self, operation: str) -> str:
         now = str(int(time.time() * 1000))
         auth_key = '{}"http://purenetworks.com/HNAP1/{}"'.format(now, operation)
         key = (self.private_key or 'withoutloginkey').encode()
@@ -43,6 +49,14 @@ class HNAPSession:
     def get_cookies(self) -> dict:
         return {'uid': '{}'.format(self.cookie_id),
                 'PrivateKey': '{}'.format(self.private_key)}
+
+    def do_request(self, method: str, url: str, **kwargs) -> Response:
+        self.request_ts = datetime.now()
+        return self.http_session.request(method, url, **kwargs)
+
+    @property
+    def expired(self):
+        return self.request_ts and (datetime.now() - self.request_ts) > self.max_inactive
 
 
 class HNAPCommand:
@@ -66,7 +80,7 @@ class HNAPCommand:
         body = {self.operation: self.build_payload_data(**kwargs)}
 
         logger.debug(">>>> {}: url={}, headers={}, cookies={}, body={}".format(self, url, headers, cookies, body))
-        resp = session.http_session.request(self.method, url, headers=headers, cookies=cookies, json=body, verify=False, timeout=(3.0, 10.0))
+        resp = session.do_request(self.method, url, headers=headers, cookies=cookies, json=body, verify=False, timeout=(3.0, 10.0))
         logger.debug("<<<< {}: url={}, code={}, body={}".format(self, url, resp.status_code, resp.text))
         return self.validate_response(resp)
 
@@ -143,44 +157,65 @@ class GetMultipleCommands(HNAPCommand):
 
 
 class HNAPSystem:
+    def __init__(self):
+        self.session = None
+
     def login(self, scheme, host, username, password) -> HNAPSession:
-        session = HNAPSession(host, scheme)
+        self.session = HNAPSession(host, scheme, username, password)
 
         # Ask server to encode credentials
         command = LoginRequest()
-        login_response = command.execute(session, username=username, password=password)
+        login_response = command.execute(self.session, username=username, password=password)
 
         cookie_id = login_response['Cookie']
         public_key = login_response['PublicKey']
         challenge = login_response['Challenge']
 
-        session.authenticate(challenge.encode(), public_key.encode(), password.encode(), cookie_id)
+        self.session.authenticate(challenge.encode(), public_key.encode(), password.encode(), cookie_id)
 
         command = Login()
-        command.execute(session, username=username, encoded_password=session.encoded_password)
+        command.execute(self.session, username=username, encoded_password=self.session.encoded_password)
 
-        return session
+        return self.session
 
-    def logout(self, session: HNAPSession, username) -> dict:
-        return self.do_command(session, Logout(), username=username)
+    def logout(self) -> dict:
+        if not self.session:
+            return {}
+        resp = self.do_command(Logout(), username=self.session.username)
+        self.session = None
+        return resp
 
-    def get_commands(self, session: HNAPSession) -> list:
+    def get_commands(self) -> list:
         raise NotImplemented
 
-    def get_device_info(self, session: HNAPSession) -> DeviceInfo:
+    def get_device_info(self) -> DeviceInfo:
         raise NotImplemented
 
-    def get_connection_summary(self, session: HNAPSession) -> ConnectionSummary:
+    def get_connection_summary(self) -> ConnectionSummary:
         raise NotImplemented
 
-    def get_connection_details(self, session: HNAPSession) -> ConnectionDetails:
+    def get_connection_details(self) -> ConnectionDetails:
         raise NotImplemented
 
-    def get_events(self, session: HNAPSession) -> list:
+    def get_events(self) -> list:
         raise NotImplemented
 
-    def reboot(self, session: HNAPSession):
+    def reboot(self):
         raise NotImplemented
 
-    def do_command(self, session: HNAPSession, command: HNAPCommand, **kwargs) -> dict:
-        return command.execute(session, **kwargs)
+    def do_command(self, command: HNAPCommand, **kwargs) -> dict:
+        if not self.validate_session():
+            self.refresh_session()
+        return command.execute(self.session, **kwargs)
+
+    def validate_session(self) -> bool:
+        if not self.session:
+            logger.debug('No session active')
+            return False
+        if self.session.expired:
+            logger.debug('Session has expired')
+            return False
+        return True
+
+    def refresh_session(self):
+        self.login(self.session.scheme, self.session.host, self.session.username, self.session.password)

@@ -1,4 +1,4 @@
-from hnap import HNAPSystem, HNAPCommand, HNAPSession, GetMultipleCommands, Logout
+from hnap import HNAPSystem, HNAPCommand, GetMultipleCommands
 from models import ConnectionSummary, ConnectionDetails, EventLogEntry, DownstreamChannelStats, UpstreamChannelStats, \
     DeviceInfo
 
@@ -17,10 +17,9 @@ class Reboot(SetStatusSecuritySettings):
 
 
 class ArrisSystem(HNAPSystem):
-    def get_commands(self, session: HNAPSession) -> list:
+    def get_commands(self) -> list:
         return [HNAPCommand('GetHomeAddress'),
                 HNAPCommand('GetHomeConnection'),
-                # HNAPCommand('GetTimeSettings', method='GET'),
                 HNAPCommand('GetArrisConfigurationInfo'),
                 HNAPCommand('GetArrisDeviceStatus'),
                 HNAPCommand('GetArrisRegisterInfo'),
@@ -35,13 +34,12 @@ class ArrisSystem(HNAPSystem):
                 HNAPCommand('GetCustomerStatusUpstreamChannelInfo'),
                 HNAPCommand('GetCustomerStatusXXX'),
                 HNAPCommand('GetArrisXXX'),
-                Logout(),
                 Reboot()]
 
-    def get_device_info(self, session: HNAPSession) -> DeviceInfo:
+    def get_device_info(self) -> DeviceInfo:
         sub_commands = [HNAPCommand('GetArrisDeviceStatus'),
                         HNAPCommand('GetArrisRegisterInfo')]
-        response = self.do_command(session, GetMultipleCommands(sub_commands))
+        response = self.do_command(GetMultipleCommands(sub_commands))
 
         summary = DeviceInfo()
 
@@ -58,11 +56,11 @@ class ArrisSystem(HNAPSystem):
 
         return summary
 
-    def get_connection_summary(self, session: HNAPSession) -> ConnectionSummary:
+    def get_connection_summary(self) -> ConnectionSummary:
         sub_commands = [HNAPCommand('GetHomeAddress'),
                         HNAPCommand('GetHomeConnection'),
                         HNAPCommand('GetCustomerStatusSoftware')]
-        response = self.do_command(session, GetMultipleCommands(sub_commands))
+        response = self.do_command(GetMultipleCommands(sub_commands))
 
         summary = ConnectionSummary()
 
@@ -84,12 +82,12 @@ class ArrisSystem(HNAPSystem):
 
         return summary
 
-    def get_connection_details(self, session: HNAPSession) -> ConnectionDetails:
+    def get_connection_details(self) -> ConnectionDetails:
         sub_commands = [HNAPCommand('GetCustomerStatusStartupSequence'),
                         HNAPCommand('GetCustomerStatusConnectionInfo'),
                         HNAPCommand('GetCustomerStatusDownstreamChannelInfo'),
                         HNAPCommand('GetCustomerStatusUpstreamChannelInfo')]
-        response = self.do_command(session, GetMultipleCommands(sub_commands))
+        response = self.do_command(GetMultipleCommands(sub_commands))
 
         details = ConnectionDetails()
 
@@ -143,8 +141,8 @@ class ArrisSystem(HNAPSystem):
 
         return details
 
-    def get_events(self, session: HNAPSession) -> list:
-        response = self.do_command(session, HNAPCommand('GetCustomerStatusLog'))
+    def get_events(self) -> list:
+        response = self.do_command(HNAPCommand('GetCustomerStatusLog'))
 
         events = []
 
@@ -161,5 +159,6 @@ class ArrisSystem(HNAPSystem):
 
         return events
 
-    def reboot(self, session: HNAPSession):
-        self.do_command(session, Reboot())
+    def reboot(self):
+        self.do_command(Reboot())
+        self.session = None

@@ -27,26 +27,22 @@ if __name__ == '__main__':
 
         system = MotorolaSystem()
 
-    hnap_session = system.login(device.get('scheme'), device.get('host'), device.get('username'),
-                                device.get('password'))
+    system.login(device.get('scheme'), device.get('host'), device.get('username'), device.get('password'))
 
     if args.action == 'test':
-        for command in system.get_commands(hnap_session):
+        for command in system.get_commands():
             if command.read_only:
                 logger.info('Testing {}...'.format(command))
-                print(json.dumps(system.do_command(hnap_session, command), default=lambda o: o.__dict__))
+                print(json.dumps(system.do_command(command), default=lambda o: o.__dict__))
     elif args.action == 'device':
-        print(json.dumps(system.get_device_info(hnap_session), default=lambda o: o.__dict__))
-        system.logout(hnap_session, username=device.get('username'))
+        print(json.dumps(system.get_device_info(), default=lambda o: o.__dict__))
     elif args.action == 'summary':
-        print(json.dumps(system.get_connection_summary(hnap_session), default=lambda o: o.__dict__))
-        system.logout(hnap_session, username=device.get('username'))
+        print(json.dumps(system.get_connection_summary(), default=lambda o: o.__dict__))
     elif args.action == 'details':
-        print(json.dumps(system.get_connection_details(hnap_session), default=lambda o: o.__dict__))
-        system.logout(hnap_session, username=device.get('username'))
+        print(json.dumps(system.get_connection_details(), default=lambda o: o.__dict__))
     elif args.action == 'events':
-        print(json.dumps(system.get_events(hnap_session), default=lambda o: o.__dict__))
-        system.logout(hnap_session, username=device.get('username'))
+        print(json.dumps(system.get_events(), default=lambda o: o.__dict__))
     elif args.action == 'reboot':
-        system.reboot(hnap_session)
+        system.reboot()
 
+    system.logout()
