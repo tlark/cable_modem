@@ -113,6 +113,16 @@ class Login(LoginRequest):
                 'LoginPassword': kwargs['encoded_password']}
 
 
+class Logout(HNAPCommand):
+    def __init__(self):
+        super().__init__('Logout')
+
+    def build_payload_data(self, **kwargs) -> dict:
+        return {'Action': 'logout',
+                'Captcha': '',
+                'Username': kwargs['username']}
+
+
 class GetMultipleCommands(HNAPCommand):
     def __init__(self, commands: list):
         super().__init__('GetMultipleHNAPs')
@@ -150,8 +160,8 @@ class HNAPSystem:
 
         return session
 
-    def logout(self, session: HNAPSession):
-        raise NotImplemented
+    def logout(self, session: HNAPSession, username) -> dict:
+        return self.do_command(session, Logout(), username=username)
 
     def get_commands(self, session: HNAPSession) -> list:
         raise NotImplemented

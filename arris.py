@@ -19,7 +19,7 @@ class Reboot(SetStatusSecuritySettings):
         # {"SetArrisConfigurationInfo":{"Action":"reboot","SetEEEEnable":"0","LED_Status":"1"}}
         return {'Action': 'reboot',
                 'SetEEEEnable': '0',
-                'LED_Status': '1'}
+                'LED_Status': '2'}
 
 
 class ArrisSystem(HNAPSystem):

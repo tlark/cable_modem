@@ -45,3 +45,5 @@ if __name__ == '__main__':
         print(json.dumps(system.get_events(hnap_session), default=lambda o: o.__dict__))
     elif args.action == 'reboot':
         system.reboot(hnap_session)
+
+    system.logout(hnap_session, username=device.get('username'))
