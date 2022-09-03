@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from hnap import HNAPSystem, HNAPCommand, GetMultipleCommands
 from models import ConnectionSummary, ConnectionDetails, EventLogEntry, DownstreamChannelStats, UpstreamChannelStats
 
@@ -118,14 +120,20 @@ class MotorolaSystem(HNAPSystem):
         events = []
 
         # '12:14:11^Tue Aug 16 2022\n^Critical (3)^Started Unicast Maintenance Ranging...}-{12:18:05^Tue Aug 16 2022
+        prev_ts = datetime.min
         raw_events = response.get('MotoStatusLogList').split("}-{")
         for e, raw_event in enumerate(raw_events):
             raw_event_list = raw_event.split("^")
-            event = EventLogEntry()
-            event.date = raw_event_list[1].strip()
-            event.time = raw_event_list[0].strip()
-            event.priority = raw_event_list[2].strip()
-            event.desc = raw_event_list[3].strip()
+
+            date = raw_event_list[1].strip()
+            time = raw_event_list[0].strip()
+            try:
+                ts = self.to_timestamp(date, time)
+            except ValueError:
+                ts = prev_ts + timedelta(seconds=1)
+            prev_ts = ts
+
+            event = EventLogEntry(timestamp=ts, priority=raw_event_list[2].strip(), desc=raw_event_list[3].strip())
             events.append(event)
 
         return events
@@ -133,3 +141,6 @@ class MotorolaSystem(HNAPSystem):
     def reboot(self):
         self.do_command(Reboot())
         self.session = None
+
+    def to_timestamp(self, date: str, time: str):
+        return datetime.strptime('{} {}'.format(date, time), '%a %b %d %Y %H:%M:%S')

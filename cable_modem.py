@@ -1,9 +1,10 @@
 import argparse
 import json
 import logging
-from logging.config import fileConfig
 
-logging.config.fileConfig('logging_config.ini', disable_existing_loggers=False)
+import logging_config
+
+logging_config.configure()
 logger = logging.getLogger('cable_modem')
 
 if __name__ == '__main__':

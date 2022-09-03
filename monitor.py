@@ -3,10 +3,11 @@ import json
 import logging
 import os
 from datetime import datetime, timedelta
-from logging.config import fileConfig
 from time import sleep
 
-logging.config.fileConfig('logging_config.ini', disable_existing_loggers=False)
+import logging_config
+
+logging_config.configure()
 logger = logging.getLogger('monitor')
 
 actions = {'device': 'get_device_info',

@@ -3,18 +3,18 @@ import json
 import logging
 import time
 from datetime import datetime, timedelta
-from logging.config import fileConfig
 
 import requests
 # Disable warnings for ignoring SSL cert verification
 import urllib3
 from requests import Response
 
+import logging_config
 from models import ConnectionSummary, ConnectionDetails, DeviceInfo
 
 urllib3.disable_warnings()
 
-logging.config.fileConfig('logging_config.ini', disable_existing_loggers=False)
+logging_config.configure()
 logger = logging.getLogger(__name__)
 
 
@@ -80,7 +80,8 @@ class HNAPCommand:
         body = {self.operation: self.build_payload_data(**kwargs)}
 
         logger.debug(">>>> {}: url={}, headers={}, cookies={}, body={}".format(self, url, headers, cookies, body))
-        resp = session.do_request(self.method, url, headers=headers, cookies=cookies, json=body, verify=False, timeout=(3.0, 10.0))
+        resp = session.do_request(self.method, url, headers=headers, cookies=cookies, json=body, verify=False,
+                                  timeout=(3.0, 10.0))
         logger.debug("<<<< {}: url={}, code={}, body={}".format(self, url, resp.status_code, resp.text))
         return self.validate_response(resp)
 
@@ -159,6 +160,14 @@ class GetMultipleCommands(HNAPCommand):
 class HNAPSystem:
     def __init__(self):
         self.session = None
+        self.model = None
+        self.serial_number = None
+        self.mac_address = None
+
+    def __str__(self):
+        return '{}: model={}, serial_number={}, mac_address={}, session={}'.format(self.__class__.__name__, self.model,
+                                                                                   self.serial_number,
+                                                                                   self.mac_address, self.session)
 
     def login(self, scheme, host, username, password) -> HNAPSession:
         self.session = HNAPSession(host, scheme, username, password)
@@ -219,3 +228,6 @@ class HNAPSystem:
 
     def refresh_session(self):
         self.login(self.session.scheme, self.session.host, self.session.username, self.session.password)
+
+    def to_timestamp(self, date: str, time: str):
+        raise NotImplemented

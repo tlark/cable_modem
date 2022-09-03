@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from hnap import HNAPSystem, HNAPCommand, GetMultipleCommands
 from models import ConnectionSummary, ConnectionDetails, EventLogEntry, DownstreamChannelStats, UpstreamChannelStats, \
     DeviceInfo
@@ -44,9 +46,9 @@ class ArrisSystem(HNAPSystem):
         summary = DeviceInfo()
 
         section = response['GetArrisRegisterInfoResponse']
-        summary.model = section.get('ModelName')
-        summary.serial_number = section.get('SerialNumber')
-        summary.mac_address = section.get('MacAddress')
+        summary.model = self.model = section.get('ModelName')
+        summary.serial_number = self.serial_number = section.get('SerialNumber')
+        summary.mac_address = self.mac_address = section.get('MacAddress')
 
         section = response['GetArrisDeviceStatusResponse']
         summary.firmware_version = section.get('FirmwareVersion')
@@ -147,14 +149,20 @@ class ArrisSystem(HNAPSystem):
         events = []
 
         # 0^00:01:11^1/1/1970^3^SYNC Timing Synchronization failure - Failed...}-{0^00:00:...
+        prev_ts = datetime.min
         raw_events = response.get('CustomerStatusLogList').split("}-{")
         for e, raw_event in enumerate(raw_events):
             raw_event_list = raw_event.split("^")
-            event = EventLogEntry()
-            event.time = raw_event_list[1].strip()
-            event.date = raw_event_list[2].strip()
-            event.priority = raw_event_list[3].strip()
-            event.desc = raw_event_list[4].strip()
+
+            date = raw_event_list[2].strip()
+            time = raw_event_list[1].strip()
+            try:
+                ts = self.to_timestamp(date, time)
+            except ValueError:
+                ts = prev_ts + timedelta(seconds=1)
+            prev_ts = ts
+
+            event = EventLogEntry(timestamp=ts, priority=raw_event_list[3].strip(), desc=raw_event_list[4].strip())
             events.append(event)
 
         return events
@@ -162,3 +170,6 @@ class ArrisSystem(HNAPSystem):
     def reboot(self):
         self.do_command(Reboot())
         self.session = None
+
+    def to_timestamp(self, date: str, time: str):
+        return datetime.strptime('{} {}'.format(date, time), '%d/%m/%Y %H:%M:%S')

@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from datetime import datetime
 
 
 class DeviceInfo:
@@ -35,8 +36,8 @@ class ConnectionDetails:
                                           'security': StartupStep()})
         self.uptime = None
         self.network_access = None
-        self.downstream_channels = []  # GetMotoStatusDownstreamChannelInfo
-        self.upstream_channels = []  # GetMotoStatusUpstreamChannelInfo
+        self.downstream_channels = []
+        self.upstream_channels = []
 
 
 class StartupStep:
@@ -70,8 +71,13 @@ class UpstreamChannelStats(ChannelStats):
 
 
 class EventLogEntry:
-    def __init__(self):
-        self.date = None
-        self.time = None
-        self.priority = None
-        self.desc = None
+    def __init__(self, timestamp: datetime, priority, desc):
+        self.timestamp = timestamp.isoformat()
+        self.priority = priority
+        self.desc = desc
+
+    def __eq__(self, other):
+        return self.timestamp == other.timestamp
+
+    def __hash__(self):
+        return hash((self.timestamp, self.priority, self.desc))
