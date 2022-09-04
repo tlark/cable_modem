@@ -4,26 +4,27 @@ import json
 import logging
 from datetime import datetime, timedelta
 
-import logging_config
+import log_config
 from models import EventLogEntry
 
-logging_config.configure()
+log_config.configure('events.log')
 logger = logging.getLogger('transformer')
 
-if __name__ == '__main__':
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('device')
     args = parser.parse_args()
 
-    system = None
+    device = None
     if args.device == 'arris':
-        from arris import ArrisSystem
+        from arris import ArrisDevice
 
-        system = ArrisSystem()
+        device = ArrisDevice(args.device)
     elif args.device == 'motorola':
-        from motorola import MotorolaSystem
+        from motorola import MotorolaDevice
 
-        system = MotorolaSystem()
+        device = MotorolaDevice(args.device)
 
     combined_events = {}
     unknown_ts_events = []
@@ -42,8 +43,8 @@ if __name__ == '__main__':
                     ts = datetime.fromisoformat(json_event.get('timestamp'))
                 else:
                     try:
-                        ts = system.to_timestamp(json_event.get('date'), json_event.get('time'))
-                    except ValueError as ve:
+                        ts = device.to_timestamp(json_event.get('date'), json_event.get('time'))
+                    except ValueError:
                         synthetic_ts += timedelta(seconds=1)
                         ts = synthetic_ts
 
@@ -76,3 +77,7 @@ if __name__ == '__main__':
     output_filename = '{}/events.json'.format(args.device)
     with open(output_filename, 'w') as output_file:
         output_file.write(json_result)
+
+
+if __name__ == '__main__':
+    main()

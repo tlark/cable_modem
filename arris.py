@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from hnap import HNAPSystem, HNAPCommand, GetMultipleCommands
+from hnap import HNAPDevice, HNAPCommand, GetMultipleCommands
 from models import ConnectionSummary, ConnectionDetails, EventLogEntry, DownstreamChannelStats, UpstreamChannelStats, \
     DeviceInfo
 
@@ -18,7 +18,7 @@ class Reboot(SetStatusSecuritySettings):
                 'LED_Status': '2'}
 
 
-class ArrisSystem(HNAPSystem):
+class ArrisDevice(HNAPDevice):
     def get_commands(self) -> list:
         return [HNAPCommand('GetHomeAddress'),
                 HNAPCommand('GetHomeConnection'),

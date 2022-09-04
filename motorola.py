@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from hnap import HNAPSystem, HNAPCommand, GetMultipleCommands
+from hnap import HNAPDevice, HNAPCommand, GetMultipleCommands
 from models import ConnectionSummary, ConnectionDetails, EventLogEntry, DownstreamChannelStats, UpstreamChannelStats
 
 
@@ -15,7 +15,7 @@ class Reboot(SetStatusSecuritySettings):
                 'MotoStatusSecXXX': 'XXX'}
 
 
-class MotorolaSystem(HNAPSystem):
+class MotorolaDevice(HNAPDevice):
     def get_commands(self) -> list:
         return [HNAPCommand('GetHomeAddress'),
                 HNAPCommand('GetHomeConnection'),

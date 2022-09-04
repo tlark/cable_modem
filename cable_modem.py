@@ -2,48 +2,53 @@ import argparse
 import json
 import logging
 
-import logging_config
+import log_config
 
-logging_config.configure()
+log_config.configure('cable_modem.log')
 logger = logging.getLogger('cable_modem')
 
-if __name__ == '__main__':
+
+def main():
     with open('devices.json') as devices_file:
-        devices = json.load(devices_file)
+        supported_devices = json.load(devices_file)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('device', choices=devices.keys())
+    parser.add_argument('device', choices=supported_devices.keys())
     parser.add_argument('action', default='test', choices=['test', 'device', 'summary', 'details', 'events', 'reboot'])
     args = parser.parse_args()
 
-    device = devices.get(args.device)
+    device_attrs = supported_devices.get(args.device)
 
-    system = None
+    device = None
     if args.device == 'arris':
-        from arris import ArrisSystem
+        from arris import ArrisDevice
 
-        system = ArrisSystem()
+        device = ArrisDevice(args.device)
     elif args.device == 'motorola':
-        from motorola import MotorolaSystem
+        from motorola import MotorolaDevice
 
-        system = MotorolaSystem()
+        device = MotorolaDevice(args.device)
 
-    system.login(device.get('scheme'), device.get('host'), device.get('username'), device.get('password'))
+    device.login(device_attrs['scheme'], device_attrs['host'], device_attrs['username'], device_attrs['password'])
 
     if args.action == 'test':
-        for command in system.get_commands():
+        for command in device.get_commands():
             if command.read_only:
                 logger.info('Testing {}...'.format(command))
-                print(json.dumps(system.do_command(command), default=lambda o: o.__dict__))
+                print(json.dumps(device.do_command(command), default=lambda o: o.__dict__))
     elif args.action == 'device':
-        print(json.dumps(system.get_device_info(), default=lambda o: o.__dict__))
+        print(json.dumps(device.get_device_info(), default=lambda o: o.__dict__))
     elif args.action == 'summary':
-        print(json.dumps(system.get_connection_summary(), default=lambda o: o.__dict__))
+        print(json.dumps(device.get_connection_summary(), default=lambda o: o.__dict__))
     elif args.action == 'details':
-        print(json.dumps(system.get_connection_details(), default=lambda o: o.__dict__))
+        print(json.dumps(device.get_connection_details(), default=lambda o: o.__dict__))
     elif args.action == 'events':
-        print(json.dumps(system.get_events(), default=lambda o: o.__dict__))
+        print(json.dumps(device.get_events(), default=lambda o: o.__dict__))
     elif args.action == 'reboot':
-        system.reboot()
+        device.reboot()
 
-    system.logout()
+    device.logout()
+
+
+if __name__ == '__main__':
+    main()

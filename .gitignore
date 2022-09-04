@@ -3,3 +3,5 @@
 /venv/
 /arris/
 /motorola/
+/*.egg-info/
+*.log

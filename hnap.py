@@ -9,12 +9,10 @@ import requests
 import urllib3
 from requests import Response
 
-import logging_config
 from models import ConnectionSummary, ConnectionDetails, DeviceInfo
 
 urllib3.disable_warnings()
 
-logging_config.configure()
 logger = logging.getLogger(__name__)
 
 
@@ -157,17 +155,20 @@ class GetMultipleCommands(HNAPCommand):
         return multiple_commands_response
 
 
-class HNAPSystem:
-    def __init__(self):
+class HNAPDevice:
+    def __init__(self, device_id):
+        self.device_id = device_id
         self.session = None
         self.model = None
         self.serial_number = None
         self.mac_address = None
 
     def __str__(self):
-        return '{}: model={}, serial_number={}, mac_address={}, session={}'.format(self.__class__.__name__, self.model,
-                                                                                   self.serial_number,
-                                                                                   self.mac_address, self.session)
+        return '{}: id={}, model={}, serial_number={}, mac_address={}, session={}'.format(self.__class__.__name__,
+                                                                                          self.device_id, self.model,
+                                                                                          self.serial_number,
+                                                                                          self.mac_address,
+                                                                                          self.session)
 
     def login(self, scheme, host, username, password) -> HNAPSession:
         self.session = HNAPSession(host, scheme, username, password)
