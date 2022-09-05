@@ -38,6 +38,8 @@ def main():
 
             synthetic_ts = datetime.fromisoformat('1970-01-01T00:00:00')
             json_events = json.load(json_file)
+            if not isinstance(json_events, list):
+                json_events = json_events['result']
             for json_event in json_events:
                 if json_event.get('timestamp', None):
                     ts = datetime.fromisoformat(json_event.get('timestamp'))
