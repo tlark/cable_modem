@@ -31,6 +31,10 @@ class HNAPSession:
         self.request_ts = None
         self.max_inactive = timedelta(seconds=600)
 
+    def __str__(self):
+        return '{} for {} on {}://{}/, valid={}'.format(self.__class__.__name__, self.username, self.scheme, self.host,
+                                                        self.is_valid())
+
     def authenticate(self, challenge, public_key, password, cookie_id):
         self.private_key = hmac.new(public_key + password, challenge, digestmod=self.digestmod).hexdigest().upper()
         self.encoded_password = hmac.new(self.private_key.encode(), challenge,
@@ -52,9 +56,19 @@ class HNAPSession:
         self.request_ts = datetime.now()
         return self.http_session.request(method, url, **kwargs)
 
-    @property
-    def expired(self):
+    def invalidate(self):
+        logger.warning('Invalidating {}'.format(self))
+        self.http_session = requests.Session()
+        self.private_key = None
+        self.cookie_id = None
+        self.encoded_password = None
+        self.request_ts = None
+
+    def is_expired(self):
         return self.request_ts and (datetime.now() - self.request_ts) > self.max_inactive
+
+    def is_valid(self):
+        return self.private_key and self.cookie_id and self.encoded_password and not self.is_expired()
 
 
 class HNAPCommand:
@@ -164,13 +178,13 @@ class HNAPDevice:
         self.mac_address = None
 
     def __str__(self):
-        return '{}: id={}, model={}, serial_number={}, mac_address={}, session={}'.format(self.__class__.__name__,
-                                                                                          self.device_id, self.model,
-                                                                                          self.serial_number,
-                                                                                          self.mac_address,
-                                                                                          self.session)
+        return '{}(id={}, model={}, serial_number={}, mac_address={})'.format(self.__class__.__name__,
+                                                                              self.device_id, self.model,
+                                                                              self.serial_number,
+                                                                              self.mac_address)
 
     def login(self, scheme, host, username, password) -> HNAPSession:
+        logger.debug('Attempting login for {} on {}://{}'.format(username, scheme, host))
         self.session = HNAPSession(host, scheme, username, password)
 
         # Ask server to encode credentials
@@ -186,13 +200,16 @@ class HNAPDevice:
         command = Login()
         command.execute(self.session, username=username, encoded_password=self.session.encoded_password)
 
+        logger.info('Completed login; {}'.format(self.session))
         return self.session
 
     def logout(self) -> dict:
         if not self.session:
             return {}
+        logger.debug('Attempting logout; {}'.format(self.session))
         resp = self.do_command(Logout(), username=self.session.username)
-        self.session = None
+        self.session.invalidate()
+        logger.info('Completed logout; {}'.format(self.session))
         return resp
 
     def get_commands(self) -> list:
@@ -213,22 +230,29 @@ class HNAPDevice:
     def reboot(self):
         raise NotImplemented
 
+    def ping(self):
+        self.do_command(HNAPCommand('GetHomeConnection'))
+
     def do_command(self, command: HNAPCommand, **kwargs) -> dict:
-        if not self.validate_session():
+        if not self.is_session_valid():
             self.refresh_session()
         return command.execute(self.session, **kwargs)
 
-    def validate_session(self) -> bool:
+    def is_session_valid(self) -> bool:
         if not self.session:
             logger.debug('No session active')
             return False
-        if self.session.expired:
-            logger.debug('Session has expired')
+        if not self.session.is_valid():
+            logger.debug('Invalid session={}'.format(self.session))
             return False
         return True
 
     def refresh_session(self):
+        logger.info('Refreshing {}'.format(self.session))
         self.login(self.session.scheme, self.session.host, self.session.username, self.session.password)
+
+    def invalidate_session(self):
+        self.session.invalidate()
 
     def to_timestamp(self, date: str, time: str):
         raise NotImplemented

@@ -2,11 +2,10 @@ import argparse
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from time import sleep
 
 import schedule
-from requests import ConnectTimeout
 
 import log_config
 from hnap import HNAPDevice
@@ -19,6 +18,17 @@ actions = {'device': 'get_device_info',
            'summary': 'get_connection_summary',
            'events': 'get_events',
            'details': 'get_connection_details'}
+
+
+class JobRunSummary:
+    def __init__(self, name: str):
+        self.name = name
+        self.started_at = datetime.now()
+        self.completed_at = None
+        self.succeeded = True
+
+    def __str__(self):
+        return '{}({})'.format(self.__class__.__name__, self.__dict__)
 
 
 def setup(device_id: str, device_attrs: dict, action_ids: list, note: str) -> HNAPDevice:
@@ -44,73 +54,140 @@ def setup(device_id: str, device_attrs: dict, action_ids: list, note: str) -> HN
     return device
 
 
-def gather_stats(device: HNAPDevice, action_ids: list) -> timedelta:
-    sleep_time = timedelta(seconds=300)
+def get_stats(device: HNAPDevice, stat_ids: list, job_run_history: list) -> None:
+    job_run_summary = JobRunSummary('get_stats')
+    try:
+        unique = datetime.now().strftime('%Y%m%d_%H%M%S')
+        for stat_id in stat_ids:
+            stat_name = actions.get(stat_id, None)
+            if not stat_name:
+                logger.error('Stat "{}" not supported for {}'.format(stat_id, device))
+                continue
 
-    print('{} Gathering {} stats'.format(datetime.now().strftime('%D %T'), device.device_id), end='...', flush=True)
-    unique = datetime.now().strftime('%Y%m%d_%H%M%S')
-    for action_id in action_ids:
-        action_name = actions.get(action_id, None)
-        if not action_name:
-            logger.error('{} does not support {}'.format(device.device_id, action_id))
-            continue
+            stat_func = getattr(device, stat_name, None)
+            if not stat_func:
+                logger.error('Stat function "{}" not supported for {}'.format(stat_name, device))
+                continue
 
-        print(action_id, end='...', flush=True)
-        action = getattr(device, action_name, None)
-        if not action:
-            logger.error('{} does not have "{}" function for {}'.format(device.device_id, action_name, action_id))
-            continue
+            output_filename = '{}/{}/{}.json'.format(device.device_id, stat_id, unique)
+            json_result = {}
+            try:
+                json_result = stat_func()
+                logger.debug('Get {} stats complete for {}; results in {}'.format(stat_id, device, output_filename))
+            except Exception as e:
+                error_msg = 'Get {} stats FAILED ({}) for {}'.format(stat_id, e, device)
+                logger.error(error_msg)
+                json_result = {'error': error_msg}
+                raise e
+            finally:
+                timestamped_json_result = {'timestamp': datetime.now().isoformat(), 'result': json_result}
+                with open(output_filename, 'w') as output_file:
+                    output_file.write(json.dumps(timestamped_json_result, default=lambda o: o.__dict__))
+    except Exception:
+        job_run_summary.succeeded = False
+    finally:
+        job_run_summary.completed_at = datetime.now()
+        job_run_history.append(job_run_summary)
+    logger.info('Get stats complete for {}'.format(device))
 
-        try:
-            result = action()
-            json_result = json.dumps(result, default=lambda o: o.__dict__)
-            output_filename = '{}/{}/{}.json'.format(device.device_id, action_id, unique)
-            with open(output_filename, 'w') as output_file:
-                output_file.write(json_result)
-        except Exception as e:
-            print('FAILED ({})'.format(e), end='...', flush=True)
-            logger.exception('{} FAILED for {}'.format(action_id, device.device_id))
-            if isinstance(e, ConnectTimeout):
-                sleep_time = timedelta(seconds=30)
-            else:
-                # Assume the session expired and needs to be refreshed
-                device.session = None
-                sleep_time = timedelta(seconds=5)
+
+def reboot(device: HNAPDevice, job_run_history: list):
+    job_run_summary = JobRunSummary('reboot')
+    try:
+        device.reboot()
+        # Pause monitoring while the device reboots
+        sleep(30)
+    except Exception as e:
+        job_run_summary.succeeded = False
+        logger.error('reboot FAILED ({}) for {}'.format(e, device))
+    finally:
+        job_run_summary.completed_at = datetime.now()
+        job_run_history.append(job_run_summary)
+    logger.info('reboot complete for {}'.format(device))
+
+
+def ping(device: HNAPDevice, job_run_history: list):
+    job_run_summary = JobRunSummary('ping')
+    try:
+        device.ping()
+    except Exception as e:
+        logger.error('ping FAILED ({}) for {}'.format(e, device))
+        job_run_summary.succeeded = False
+        device.invalidate_session()
+    finally:
+        job_run_summary.completed_at = datetime.now()
+        job_run_history.append(job_run_summary)
+    logger.debug('ping complete for {}'.format(device))
+
+    if job_run_summary.succeeded and is_reboot_recommended(device, job_run_history):
+        reboot(device, job_run_history)
+
+
+def is_reboot_recommended(device: HNAPDevice, job_run_history: list) -> bool:
+    # Determine if a reboot should be done based on job history:
+    # - If there are ANY failures between 2 successful runs, then a reboot is recommended
+    failed = 0
+    succeeded = 0
+    for job_run_entry in reversed(job_run_history):
+        logger.debug('is_reboot_recommended: Processing {} for {}'.format(job_run_entry, device))
+        if job_run_entry.name == 'reboot':
             break
-    return sleep_time
+        if job_run_entry.succeeded:
+            succeeded += 1
+            # If this is the 2nd success after 1+ failures, we're done
+            if failed > 0 and succeeded >= 2:
+                break
+        elif succeeded > 0:
+            failed += 1
+            # Ignore succeeded ones before the first failure
+            succeeded = 1
 
-
-def reboot(device: HNAPDevice):
-    device.reboot()
+    logger.debug('is_reboot_recommended: #succeeded={}, #failed={} for {}'.format(succeeded, failed, device))
+    return succeeded >= 2 and failed > 0
 
 
 def main():
     with open('devices.json') as devices_file:
         supported_devices = json.load(devices_file)
 
-    wanted_actions = ['device', 'summary', 'events', 'details']
+    wanted_stats = ['device', 'summary', 'events', 'details']
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--note', required=False)
-    parser.add_argument('device', choices=supported_devices.keys())
+    parser.add_argument('--reboot_times', default=['04:00'], nargs='*')
+    parser.add_argument('device_id', choices=supported_devices.keys())
     args = parser.parse_args()
 
-    device_attrs = supported_devices.get(args.device)
-    action_ids = [a for a in wanted_actions if a in device_attrs['supported_actions']]
+    device_attrs = supported_devices.get(args.device_id)
+    stat_ids = [a for a in wanted_stats if a in device_attrs['supported_actions']]
 
-    device = setup(args.device, device_attrs, action_ids, args.note)
+    device = setup(args.device_id, device_attrs, stat_ids, args.note)
 
-    # Reboot the device every day at 4am and 4pm
-    schedule.every().day.at("04:00").do(reboot, device=device)
-    schedule.every().day.at("16:00").do(reboot, device=device)
+    job_run_history = []
+
+    ping_scheduler = schedule.Scheduler()
+    ping_job = ping_scheduler.every(30).seconds.do(ping, device=device, job_run_history=job_run_history)
+    logger.info('Ping schedule (next at {}): {}'.format(ping_job.next_run, ping_job))
+
+    stats_scheduler = schedule.Scheduler()
+    stats_job = stats_scheduler.every(5).minutes.at(':00').do(get_stats, device=device, stat_ids=stat_ids,
+                                                              job_run_history=job_run_history)
+    logger.info('Stats schedule (next at {}): {}'.format(stats_job.next_run, stats_job))
+
+    # Reboot the device N times daily
+    reboot_scheduler = schedule.Scheduler()
+    for reboot_time in args.reboot_times:
+        job = reboot_scheduler.every().day.at(reboot_time).do(reboot, device=device, job_run_history=job_run_history)
+        logger.info('Reboot schedule (next at {}): {}'.format(job.next_run, job))
+
     try:
+        ping_scheduler.run_all()
+        stats_scheduler.run_all()
         while True:
-            schedule.run_pending()
-
-            sleep_time = gather_stats(device, action_ids)
-
-            print('sleeping until {}'.format((datetime.now() + sleep_time).strftime('%T')), flush=True)
-            sleep(sleep_time.seconds)
+            ping_scheduler.run_pending()
+            stats_scheduler.run_pending()
+            reboot_scheduler.run_pending()
+            sleep(5)
     except KeyboardInterrupt:
         device.logout()
         pass

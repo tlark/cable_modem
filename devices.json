@@ -5,6 +5,7 @@
     "username": "admin",
     "password": "Abcde12345!",
     "supported_actions": [
+      "ping",
       "test",
       "device",
       "summary",
@@ -19,6 +20,7 @@
     "username": "admin",
     "password": "abcde12345",
     "supported_actions": [
+      "ping",
       "test",
       "summary",
       "events",

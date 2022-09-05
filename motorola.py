@@ -1,7 +1,10 @@
+import logging
 from datetime import datetime, timedelta
 
 from hnap import HNAPDevice, HNAPCommand, GetMultipleCommands
 from models import ConnectionSummary, ConnectionDetails, EventLogEntry, DownstreamChannelStats, UpstreamChannelStats
+
+logger = logging.getLogger(__name__)
 
 
 class SetStatusSecuritySettings(HNAPCommand):
@@ -96,6 +99,7 @@ class MotorolaDevice(HNAPDevice):
             dcs.corrected = int(channel_stats_list[7].strip())
             dcs.uncorrected = int(channel_stats_list[8].strip())
             details.downstream_channels.append(dcs)
+        logger.debug('Found {} downstream channels for {}'.format(len(details.downstream_channels), self))
 
         # 1^Locked^SC-QAM^1^5120^35.5^50.0^|+|2^Locked^SC-QAM^2^5...
         raw = response['GetMotoStatusUpstreamChannelInfoResponse'].get('MotoConnUpstreamChannel').split("|+|")
@@ -111,6 +115,7 @@ class MotorolaDevice(HNAPDevice):
             ucs.freq_mhz = float(channel_stats_list[5].strip())
             ucs.power_dbmv = float(channel_stats_list[6].strip())
             details.upstream_channels.append(ucs)
+        logger.debug('Found {} upstream channels for {}'.format(len(details.upstream_channels), self))
 
         return details
 
@@ -136,11 +141,13 @@ class MotorolaDevice(HNAPDevice):
             event = EventLogEntry(timestamp=ts, priority=raw_event_list[2].strip(), desc=raw_event_list[3].strip())
             events.append(event)
 
+        logger.debug('Found {} events for {}'.format(len(events), self))
         return events
 
     def reboot(self):
+        logger.warning('Rebooting {}'.format(self))
         self.do_command(Reboot())
-        self.session = None
+        self.invalidate_session()
 
     def to_timestamp(self, date: str, time: str):
         return datetime.strptime('{} {}'.format(date, time), '%a %b %d %Y %H:%M:%S')
