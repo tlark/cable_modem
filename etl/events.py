@@ -5,6 +5,7 @@ import logging
 from datetime import datetime, timedelta
 
 import log_config
+from devices import create_device
 from models import EventLogEntry
 
 log_config.configure('events.log')
@@ -13,23 +14,15 @@ logger = logging.getLogger('transformer')
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('device')
+    parser.add_argument('device_id')
     args = parser.parse_args()
 
-    device = None
-    if args.device == 'arris':
-        from arris import ArrisDevice
-
-        device = ArrisDevice(args.device)
-    elif args.device == 'motorola':
-        from motorola import MotorolaDevice
-
-        device = MotorolaDevice(args.device)
+    device = create_device(args.device_id)
 
     combined_events = {}
     unknown_ts_events = []
 
-    json_filenames = sorted(glob.glob('{}/events/2022*.json'.format(args.device)))
+    json_filenames = sorted(glob.glob('devices/{}/events/2022*.json'.format(args.device_id)))
     logger.info('Checking {} files'.format(len(json_filenames)))
     for json_filename in json_filenames:
         prev_combined_size = len(combined_events)
@@ -76,7 +69,7 @@ def main():
 
     logger.info('Transformed {} events'.format(len(combined_events)))
     json_result = json.dumps(sorted(combined_events.keys(), key=lambda e: e.timestamp), default=lambda o: o.__dict__)
-    output_filename = '{}/events.json'.format(args.device)
+    output_filename = 'devices/{}/events.json'.format(args.device_id)
     with open(output_filename, 'w') as output_file:
         output_file.write(json_result)
 

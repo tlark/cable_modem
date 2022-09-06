@@ -1,7 +1,7 @@
 /.idea/
-/__pycache__/
+**/__pycache__/
 /venv/
-/arris/
-/motorola/
+**/arris/
+**/motorola/
 /*.egg-info/
 *.log

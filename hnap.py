@@ -212,22 +212,22 @@ class HNAPDevice:
         return resp
 
     def get_commands(self) -> list:
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_device_info(self) -> DeviceInfo:
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_connection_summary(self) -> ConnectionSummary:
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_connection_details(self) -> ConnectionDetails:
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_events(self) -> list:
-        raise NotImplemented
+        raise NotImplementedError
 
     def reboot(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     def ping(self):
         self.do_command(HNAPCommand('GetHomeConnection'))

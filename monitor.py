@@ -8,6 +8,7 @@ from time import sleep
 import schedule
 
 import log_config
+from devices import create_device
 from hnap import HNAPDevice
 
 log_config.configure('monitor.log')
@@ -31,21 +32,12 @@ class JobRunSummary:
 
 
 def setup(device_id: str, device_attrs: dict, action_ids: list, note: str) -> HNAPDevice:
-    device = None
-    if device_id == 'arris':
-        from arris import ArrisDevice
-
-        device = ArrisDevice(device_id)
-    elif device_id == 'motorola':
-        from motorola import MotorolaDevice
-
-        device = MotorolaDevice(device_id)
-
+    device = create_device(device_id)
     device.login(device_attrs['scheme'], device_attrs['host'], device_attrs['username'], device_attrs['password'])
 
     # Create directories to hold JSON results and add any specified note to the README file
     for action_id in action_ids:
-        path = '{}/{}'.format(device_id, action_id)
+        path = 'devices/{}/{}'.format(device_id, action_id)
         os.makedirs(path, exist_ok=True)
         if note:
             with open('{}/README.txt'.format(path), 'a') as readme_file:
@@ -53,7 +45,7 @@ def setup(device_id: str, device_attrs: dict, action_ids: list, note: str) -> HN
     try:
         # Populate device info
         device.get_device_info()
-    except NotImplemented:
+    except NotImplementedError:
         pass
 
     logger.info('setup complete for {}'.format(device))
@@ -75,7 +67,7 @@ def get_stats(device: HNAPDevice, stat_ids: list, job_run_history: list) -> None
                 logger.error('Stat function "{}" not supported for {}'.format(stat_name, device))
                 continue
 
-            output_filename = '{}/{}/{}.json'.format(device.device_id, stat_id, unique)
+            output_filename = 'devices/{}/{}/{}.json'.format(device.device_id, stat_id, unique)
             json_result = {}
             try:
                 json_result = stat_func()
@@ -155,7 +147,7 @@ def is_reboot_recommended(device: HNAPDevice, job_run_history: list) -> bool:
 
 
 def main():
-    with open('devices.json') as devices_file:
+    with open('devices/devices.json') as devices_file:
         supported_devices = json.load(devices_file)
 
     wanted_stats = ['summary', 'events', 'details']

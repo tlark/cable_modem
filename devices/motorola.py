@@ -2,7 +2,8 @@ import logging
 from datetime import datetime, timedelta
 
 from hnap import HNAPDevice, HNAPCommand, GetMultipleCommands
-from models import ConnectionSummary, ConnectionDetails, EventLogEntry, DownstreamChannelStats, UpstreamChannelStats
+from models import ConnectionSummary, ConnectionDetails, EventLogEntry, DownstreamChannelStats, UpstreamChannelStats, \
+    DeviceInfo
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,16 @@ class MotorolaDevice(HNAPDevice):
         logger.debug('Found {} upstream channels for {}'.format(len(details.upstream_channels), self))
 
         return details
+
+    def get_device_info(self) -> DeviceInfo:
+        response = self.do_command(HNAPCommand('GetMotoStatusSoftware'))
+
+        summary = DeviceInfo()
+        summary.mac_address = self.mac_address = response.get('StatusSoftwareMac')
+        summary.serial_number = self.serial_number = response.get('StatusSoftwareSerialNum')
+        summary.firmware_version = response.get('StatusSoftwareSfVer')
+
+        return summary
 
     def get_events(self) -> list:
         response = self.do_command(HNAPCommand('GetMotoStatusLog'))
