@@ -32,8 +32,7 @@ class HNAPSession:
         self.max_inactive = timedelta(seconds=600)
 
     def __str__(self):
-        return '{} for {} on {}://{}/, valid={}'.format(self.__class__.__name__, self.username, self.scheme, self.host,
-                                                        self.is_valid())
+        return '{} for {} on {}://{}/'.format(self.__class__.__name__, self.username, self.scheme, self.host)
 
     def authenticate(self, challenge, public_key, password, cookie_id):
         self.private_key = hmac.new(public_key + password, challenge, digestmod=self.digestmod).hexdigest().upper()

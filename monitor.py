@@ -14,8 +14,7 @@ log_config.configure('monitor.log')
 logger = logging.getLogger('monitor')
 
 # Associate function calls with single word actions
-actions = {'device': 'get_device_info',
-           'summary': 'get_connection_summary',
+actions = {'summary': 'get_connection_summary',
            'events': 'get_events',
            'details': 'get_connection_details'}
 
@@ -51,6 +50,13 @@ def setup(device_id: str, device_attrs: dict, action_ids: list, note: str) -> HN
         if note:
             with open('{}/README.txt'.format(path), 'a') as readme_file:
                 readme_file.write('{}: {}\n'.format(datetime.now().strftime('%Y%m%d %H%M%S'), note))
+    try:
+        # Populate device info
+        device.get_device_info()
+    except NotImplemented:
+        pass
+
+    logger.info('setup complete for {}'.format(device))
     return device
 
 
@@ -96,7 +102,8 @@ def reboot(device: HNAPDevice, job_run_history: list):
     try:
         device.reboot()
         # Pause monitoring while the device reboots
-        sleep(30)
+        logger.info('Waiting 60 seconds for {}'.format(device))
+        sleep(60)
     except Exception as e:
         job_run_summary.succeeded = False
         logger.error('reboot FAILED ({}) for {}'.format(e, device))
@@ -125,7 +132,8 @@ def ping(device: HNAPDevice, job_run_history: list):
 
 def is_reboot_recommended(device: HNAPDevice, job_run_history: list) -> bool:
     # Determine if a reboot should be done based on job history:
-    # - If there are ANY failures between 2 successful runs, then a reboot is recommended
+    # - If there are 3+ failures between 2 successful runs, then a reboot is recommended
+    failed_threshold = 3
     failed = 0
     succeeded = 0
     for job_run_entry in reversed(job_run_history):
@@ -135,7 +143,7 @@ def is_reboot_recommended(device: HNAPDevice, job_run_history: list) -> bool:
         if job_run_entry.succeeded:
             succeeded += 1
             # If this is the 2nd success after 1+ failures, we're done
-            if failed > 0 and succeeded >= 2:
+            if succeeded >= 2 and failed >= failed_threshold:
                 break
         elif succeeded > 0:
             failed += 1
@@ -143,14 +151,14 @@ def is_reboot_recommended(device: HNAPDevice, job_run_history: list) -> bool:
             succeeded = 1
 
     logger.debug('is_reboot_recommended: #succeeded={}, #failed={} for {}'.format(succeeded, failed, device))
-    return succeeded >= 2 and failed > 0
+    return succeeded >= 2 and failed >= failed_threshold
 
 
 def main():
     with open('devices.json') as devices_file:
         supported_devices = json.load(devices_file)
 
-    wanted_stats = ['device', 'summary', 'events', 'details']
+    wanted_stats = ['summary', 'events', 'details']
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--note', required=False)
