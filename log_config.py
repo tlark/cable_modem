@@ -27,12 +27,12 @@ LOG_CONFIG = {
     },
     'formatters': {
         'fileFormatter': {
-            'format': '%(asctime)s.%(msecs)03d %(levelname)-8s %(name)-12s: %(message)s',
+            'format': '%(asctime)s.%(msecs)03d %(levelname)-8s %(name)-16s: %(message)s',
             'datefmt': '%Y-%m-%dT%H:%M:%S',
             'class': 'logging.Formatter'
         },
         'consoleFormatter': {
-            'format': '%(asctime)s.%(msecs)03d %(levelname)-8s %(name)-12s: %(message)s',
+            'format': '%(asctime)s.%(msecs)03d %(levelname)-8s %(name)-16s: %(message)s',
             'datefmt': '%Y-%m-%dT%H:%M:%S',
             'class': 'logging.Formatter'
         },

@@ -56,7 +56,7 @@ class HNAPSession:
         return self.http_session.request(method, url, **kwargs)
 
     def invalidate(self):
-        logger.warning('Invalidating {}'.format(self))
+        logger.info('Invalidating {}'.format(self))
         self.http_session = requests.Session()
         self.private_key = None
         self.cookie_id = None

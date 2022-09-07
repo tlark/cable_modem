@@ -156,7 +156,7 @@ class MotorolaDevice(HNAPDevice):
         return events
 
     def reboot(self):
-        logger.warning('Rebooting {}'.format(self))
+        logger.error('Rebooting {}'.format(self))
         self.do_command(Reboot())
         self.invalidate_session()
 

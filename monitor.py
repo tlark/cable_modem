@@ -21,11 +21,11 @@ actions = {'summary': 'get_connection_summary',
 
 
 class JobRunSummary:
-    def __init__(self, name: str):
+    def __init__(self, name: str, succeeded=True):
         self.name = name
         self.started_at = datetime.now()
         self.completed_at = None
-        self.succeeded = True
+        self.succeeded = succeeded
 
     def __str__(self):
         return '{}({})'.format(self.__class__.__name__, self.__dict__)
@@ -74,24 +74,25 @@ def get_stats(device: HNAPDevice, stat_ids: list, job_run_history: list) -> None
                 logger.debug('Get {} stats complete for {}; results in {}'.format(stat_id, device, output_filename))
             except Exception as e:
                 error_msg = 'Get {} stats FAILED ({}) for {}'.format(stat_id, e, device)
-                logger.error(error_msg)
+                logger.warning(error_msg)
                 json_result = {'error': error_msg}
                 raise e
             finally:
                 timestamped_json_result = {'timestamp': datetime.now().isoformat(), 'result': json_result}
                 with open(output_filename, 'w') as output_file:
                     output_file.write(json.dumps(timestamped_json_result, default=lambda o: o.__dict__))
+        logger.info('Get stats complete for {}'.format(device))
     except Exception:
         job_run_summary.succeeded = False
     finally:
         job_run_summary.completed_at = datetime.now()
         job_run_history.append(job_run_summary)
-    logger.info('Get stats complete for {}'.format(device))
 
 
 def reboot(device: HNAPDevice, job_run_history: list):
     job_run_summary = JobRunSummary('reboot')
     try:
+        logger.info('reboot; job history={}'.format([(e.name, e.succeeded) for e in job_run_history]))
         device.reboot()
         # Pause monitoring while the device reboots
         logger.info('Waiting 60 seconds for {}'.format(device))
@@ -100,6 +101,7 @@ def reboot(device: HNAPDevice, job_run_history: list):
         job_run_summary.succeeded = False
         logger.error('reboot FAILED ({}) for {}'.format(e, device))
     finally:
+        job_run_history.clear()
         job_run_summary.completed_at = datetime.now()
         job_run_history.append(job_run_summary)
     logger.info('reboot complete for {}'.format(device))
@@ -110,7 +112,7 @@ def ping(device: HNAPDevice, job_run_history: list):
     try:
         device.ping()
     except Exception as e:
-        logger.error('ping FAILED ({}) for {}'.format(e, device))
+        logger.warning('ping FAILED ({}) for {}'.format(e, device))
         job_run_summary.succeeded = False
         device.invalidate_session()
     finally:
@@ -134,8 +136,8 @@ def is_reboot_recommended(device: HNAPDevice, job_run_history: list) -> bool:
             break
         if job_run_entry.succeeded:
             succeeded += 1
-            # If this is the 2nd success after 1+ failures, we're done
-            if succeeded >= 2 and failed >= failed_threshold:
+            # If this is the 2nd success after any failures, we're done
+            if succeeded == 2 and failed > 0:
                 break
         elif succeeded > 0:
             failed += 1
