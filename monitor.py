@@ -154,11 +154,14 @@ def main():
 
     wanted_stats = ['summary', 'events', 'details']
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--note', required=False, help='Add this note to the stats README file')
-    parser.add_argument('--reboot_times', default=['04:00'], nargs='*')
-    parser.add_argument('--check_interval', type=int, default=30, help='Check every S seconds')
-    parser.add_argument('--stats_interval', type=int, default=5, help='Get stats every M minutes')
+    parser.add_argument('--reboot_times', default=['04:00'], nargs='*',
+                        help='Times of day that an automatic reboot should occur')
+    parser.add_argument('--check_interval', type=int, choices=range(30, 61), metavar='[30-60]', default=30,
+                        help='Check every S seconds')
+    parser.add_argument('--stats_interval', type=int, choices=range(1, 6), metavar='[1-5]', default=5,
+                        help='Get stats every M minutes')
     parser.add_argument('device_id', choices=supported_devices.keys())
     args = parser.parse_args()
 
