@@ -1,8 +1,7 @@
-from collections import OrderedDict
 from datetime import datetime
 
 
-class DeviceInfo:
+class DeviceInfo(object):
     def __init__(self):
         self.model = None
         self.serial_number = None
@@ -13,7 +12,7 @@ class DeviceInfo:
         self.downstream_snr = None
 
 
-class ConnectionSummary:
+class ConnectionSummary(object):
     def __init__(self):
         self.ip_address = None
         self.mac_address = None
@@ -26,51 +25,63 @@ class ConnectionSummary:
         self.sw_cert_status = None
         self.sw_customer_version = None
 
-
-class ConnectionDetails:
-    def __init__(self):
-        self.startup_steps = OrderedDict({'downstream': StartupStep(),
-                                          'upstream': StartupStep(),
-                                          'boot': StartupStep(),
-                                          'config_file': StartupStep(),
-                                          'security': StartupStep()})
-        self.uptime = None
-        self.network_access = None
-        self.downstream_channels = []
-        self.upstream_channels = []
+    def __eq__(self, other):
+        return vars(self) == vars(other)
 
 
-class StartupStep:
-    def __init__(self):
-        self.status = None
-        self.comment = None
+class ConnectionDetails(object):
+    def __init__(self, startup_steps=None, uptime=None, network_access=None, downstream_channels=None,
+                 upstream_channels=None):
+        self.startup_steps = {k: StartupStep(**v) for (k, v) in startup_steps.items()} or dict(
+            {'downstream': StartupStep(),
+             'upstream': StartupStep(),
+             'boot': StartupStep(),
+             'config_file': StartupStep(),
+             'security': StartupStep()})
+        self.uptime = uptime
+        self.network_access = network_access
+        self.downstream_channels = [DownstreamChannelStats(**c) for c in downstream_channels] or list()
+        self.upstream_channels = [UpstreamChannelStats(**c) for c in upstream_channels] or list()
 
 
-class ChannelStats:
-    def __init__(self):
-        self.channel_id = 0
-        self.lock_status = None
-        self.freq_mhz = 0.0
-        self.power_dbmv = 0.0
+class StartupStep(object):
+    def __init__(self, status=None, comment=None):
+        self.status = status
+        self.comment = comment
+
+    def __eq__(self, other):
+        return vars(self) == vars(other)
+
+
+class ChannelStats(object):
+    def __init__(self, channel_id=0, lock_status=None, freq_mhz=0.0, power_dbmv=0.0):
+        self.channel_id = channel_id
+        self.lock_status = lock_status
+        self.freq_mhz = freq_mhz
+        self.power_dbmv = power_dbmv
+
+    def __eq__(self, other):
+        return vars(self) == vars(other)
 
 
 class DownstreamChannelStats(ChannelStats):
-    def __init__(self):
-        super().__init__()
-        self.modulation = None
-        self.snr = 0.0
-        self.corrected = 0
-        self.uncorrected = 0
+    def __init__(self, channel_id=0, lock_status=None, freq_mhz=0.0, power_dbmv=0.0, modulation=None, snr=0.0,
+                 corrected=0, uncorrected=0):
+        super().__init__(channel_id, lock_status, freq_mhz, power_dbmv)
+        self.modulation = modulation
+        self.snr = snr
+        self.corrected = corrected
+        self.uncorrected = uncorrected
 
 
 class UpstreamChannelStats(ChannelStats):
-    def __init__(self):
-        super().__init__()
-        self.channel_type = None
-        self.symb_rate = 0
+    def __init__(self, channel_id=0, lock_status=None, freq_mhz=0.0, power_dbmv=0.0, channel_type=None, symb_rate=0):
+        super().__init__(channel_id, lock_status, freq_mhz, power_dbmv)
+        self.channel_type = channel_type
+        self.symb_rate = symb_rate
 
 
-class EventLogEntry:
+class EventLogEntry(object):
     def __init__(self, timestamp: datetime, priority, desc):
         self.timestamp = timestamp.isoformat()
         self.priority = priority
