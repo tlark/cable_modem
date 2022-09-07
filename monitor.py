@@ -155,8 +155,10 @@ def main():
     wanted_stats = ['summary', 'events', 'details']
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--note', required=False)
+    parser.add_argument('--note', required=False, help='Add this note to the stats README file')
     parser.add_argument('--reboot_times', default=['04:00'], nargs='*')
+    parser.add_argument('--check_interval', type=int, default=30, help='Check every S seconds')
+    parser.add_argument('--stats_interval', type=int, default=5, help='Get stats every M minutes')
     parser.add_argument('device_id', choices=supported_devices.keys())
     args = parser.parse_args()
 
@@ -167,13 +169,11 @@ def main():
 
     job_run_history = []
 
-    ping_scheduler = schedule.Scheduler()
-    ping_job = ping_scheduler.every(30).seconds.do(ping, device=device, job_run_history=job_run_history)
+    scheduler = schedule.Scheduler()
+    ping_job = scheduler.every(args.check_interval).seconds.do(ping, device=device, job_run_history=job_run_history)
     logger.info('Ping schedule (next at {}): {}'.format(ping_job.next_run, ping_job))
-
-    stats_scheduler = schedule.Scheduler()
-    stats_job = stats_scheduler.every(5).minutes.at(':00').do(get_stats, device=device, stat_ids=stat_ids,
-                                                              job_run_history=job_run_history)
+    stats_job = scheduler.every(args.stats_interval).minutes.at(':00').do(get_stats, device=device, stat_ids=stat_ids,
+                                                                          job_run_history=job_run_history)
     logger.info('Stats schedule (next at {}): {}'.format(stats_job.next_run, stats_job))
 
     # Reboot the device N times daily
@@ -183,11 +183,9 @@ def main():
         logger.info('Reboot schedule (next at {}): {}'.format(job.next_run, job))
 
     try:
-        ping_scheduler.run_all()
-        stats_scheduler.run_all()
+        scheduler.run_all()
         while True:
-            ping_scheduler.run_pending()
-            stats_scheduler.run_pending()
+            scheduler.run_pending()
             reboot_scheduler.run_pending()
             sleep(5)
     except KeyboardInterrupt:
