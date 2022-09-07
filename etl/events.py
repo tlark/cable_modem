@@ -93,7 +93,7 @@ def main():
         combined_file_events = handle_file(json_filename, device)
         total_file_events += len(combined_file_events)
         combined_events.update(combined_file_events)
-        logger.info('Added {} events from {}'.format((len(combined_events) - prev_combined_size), json_filename))
+        logger.debug('Added {} events from {}'.format((len(combined_events) - prev_combined_size), json_filename))
 
     logger.info('Transformed {} file events into {} combined events'.format(total_file_events, len(combined_events)))
     json_result = json.dumps(sorted(combined_events.keys(), key=lambda e: e.timestamp), default=lambda o: o.__dict__)

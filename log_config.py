@@ -7,18 +7,28 @@ LOG_CONFIG = {
     'loggers': {
         '': {
             'handlers': ['fileHandler'],
-            'level': 'DEBUG'
+            'level': 'INFO'
+        },
+        'monitor': {
+            'handlers': ['fileHandler'],
+            'level': 'INFO',
+            'propagate': False
+        },
+        'transformer': {
+            'handlers': ['fileHandler'],
+            'level': 'DEBUG',
+            'propagate': False
         }
     },
     'handlers': {
         'consoleHandler': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'formatter': 'consoleFormatter',
             'class': 'logging.StreamHandler',
             'stream': 'ext://sys.stdout',
         },
         'fileHandler': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'formatter': 'fileFormatter',
             'class': 'logging.FileHandler',
             'mode': 'a',
