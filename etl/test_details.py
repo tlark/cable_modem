@@ -4,6 +4,7 @@ from unittest import TestCase
 
 from etl.details import extract_connection_stats, is_channel_stats_change
 from hnap import HNAPDevice
+from models import ConnectionDetails
 
 device = HNAPDevice('test')
 
@@ -27,6 +28,12 @@ class TestDetails(TestCase):
         self.assertEqual(4, len(act.stats.upstream_channels))
         self.assertEqual(32, len(act.stats.downstream_channels))
         self.assertEqual('Allowed', act.stats.network_access)
+
+    def test_model_init(self):
+        cd = ConnectionDetails()
+        self.assertEqual(5, len(cd.startup_steps))
+        self.assertEqual(0, len(cd.downstream_channels))
+        self.assertEqual(0, len(cd.upstream_channels))
 
     def test_model_equality(self):
         json_filepath = Path('testdata', 'details', '20220907_120800.json')
@@ -53,7 +60,7 @@ class TestDetails(TestCase):
         for cur_stats in cur_ts_stats.stats.downstream_channels:
             history = list()
             self.assertTrue(is_channel_stats_change(history, vars(cur_stats).copy(), cur_ts_stats.timestamp))
-            self.assertEquals(1, len(history))
+            self.assertEqual(1, len(history))
 
     def test_is_channel_stats_change_when_no_change(self):
         json_filepath = Path('testdata', 'details', '20220907_120800.json')
@@ -65,7 +72,7 @@ class TestDetails(TestCase):
             prev_ts_stats['timestamp'] = datetime.fromisoformat(cur_ts_stats.timestamp) - timedelta(minutes=10)
             history.append(prev_ts_stats)
             self.assertFalse(is_channel_stats_change(history, vars(cur_stats).copy(), cur_ts_stats.timestamp))
-            self.assertEquals(1, len(history))
+            self.assertEqual(1, len(history))
 
     def test_is_channel_stats_change_when_change(self):
         json_filepath = Path('testdata', 'details', '20220907_120800.json')
@@ -78,4 +85,4 @@ class TestDetails(TestCase):
             prev_ts_stats['timestamp'] = datetime.fromisoformat(cur_ts_stats.timestamp) - timedelta(minutes=10)
             history.append(prev_ts_stats)
             self.assertTrue(is_channel_stats_change(history, vars(cur_stats).copy(), cur_ts_stats.timestamp))
-            self.assertEquals(2, len(history))
+            self.assertEqual(2, len(history))

@@ -32,16 +32,25 @@ class ConnectionSummary(object):
 class ConnectionDetails(object):
     def __init__(self, startup_steps=None, uptime=None, network_access=None, downstream_channels=None,
                  upstream_channels=None):
-        self.startup_steps = {k: StartupStep(**v) for (k, v) in startup_steps.items()} or dict(
-            {'downstream': StartupStep(),
-             'upstream': StartupStep(),
-             'boot': StartupStep(),
-             'config_file': StartupStep(),
-             'security': StartupStep()})
+        if startup_steps:
+            self.startup_steps = {k: StartupStep(**v) for (k, v) in startup_steps.items()}
+        else:
+            self.startup_steps = dict(
+                {'downstream': StartupStep(),
+                 'upstream': StartupStep(),
+                 'boot': StartupStep(),
+                 'config_file': StartupStep(),
+                 'security': StartupStep()})
         self.uptime = uptime
         self.network_access = network_access
-        self.downstream_channels = [DownstreamChannelStats(**c) for c in downstream_channels] or list()
-        self.upstream_channels = [UpstreamChannelStats(**c) for c in upstream_channels] or list()
+        if downstream_channels:
+            self.downstream_channels = [DownstreamChannelStats(**c) for c in downstream_channels]
+        else:
+            self.downstream_channels = list()
+        if upstream_channels:
+            self.upstream_channels = [UpstreamChannelStats(**c) for c in upstream_channels]
+        else:
+            self.upstream_channels = list()
 
 
 class StartupStep(object):
