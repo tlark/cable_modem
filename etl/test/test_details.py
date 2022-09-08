@@ -2,9 +2,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest import TestCase
 
-from etl.details import extract_connection_stats, is_channel_stats_changed
+from etl.details import extract_connection_stats, is_channel_stats_changed, transform_details
 from hnap import HNAPDevice
-from models import ConnectionDetails
+from models import ConnectionDetails, StartupStep
 
 device = HNAPDevice('test')
 
@@ -86,3 +86,54 @@ class TestDetails(TestCase):
             history.append(prev_ts_stats)
             self.assertTrue(is_channel_stats_changed(history, vars(cur_stats).copy(), cur_ts_stats.timestamp))
             self.assertEqual(2, len(history))
+
+    def test_transform_details_when_no_history(self):
+        json_filepath = Path('data', 'details', '20220907_120800.json')
+        cur_ts_stats = extract_connection_stats(json_filepath)
+
+        history = list()
+        self.assertTrue(transform_details(history, cur_ts_stats))
+        self.assertEqual(1, len(history))
+
+    def test_transform_details_when_no_change(self):
+        json_filepath = Path('data', 'details', '20220907_120800.json')
+        cur_ts_stats = extract_connection_stats(json_filepath)
+
+        history = list()
+        prev_ts_details = vars(cur_ts_stats.details).copy()
+        prev_ts_details['timestamp'] = datetime.fromisoformat(cur_ts_stats.timestamp) - timedelta(minutes=10)
+        history.append(prev_ts_details)
+
+        self.assertFalse(transform_details(history, cur_ts_stats))
+        self.assertEqual(1, len(history))
+
+    def test_transform_details_when_change(self):
+        json_filepath = Path('data', 'details', '20220907_120800.json')
+        cur_ts_stats = extract_connection_stats(json_filepath)
+        history = list()
+
+        prev_ts_details = vars(cur_ts_stats.details).copy()
+        prev_ts_details.pop('upstream_channels', None)
+        prev_ts_details.pop('downstream_channels', None)
+        prev_ts_details.pop('uptime', None)
+
+        # When network_access changes
+        prev_ts_details['network_access'] = 'Denied'
+        prev_ts_details['timestamp'] = datetime.fromisoformat(cur_ts_stats.timestamp) - timedelta(minutes=10)
+        history.append(prev_ts_details)
+        self.assertTrue(transform_details(history, cur_ts_stats))
+        self.assertEqual(2, len(history))
+        self.assertFalse('upstream_channels' in history[len(history) - 1])
+        self.assertFalse('downstream_channels' in history[len(history) - 1])
+        self.assertFalse('uptime' in history[len(history) - 1])
+
+        # When startup_steps changes
+        prev_ts_details = prev_ts_details.copy()
+        prev_ts_details['startup_steps'] = {'downstream': StartupStep(status='Not Ready')}
+        prev_ts_details['timestamp'] = datetime.fromisoformat(cur_ts_stats.timestamp) - timedelta(minutes=5)
+        history.append(prev_ts_details)
+        self.assertTrue(transform_details(history, cur_ts_stats))
+        self.assertEqual(4, len(history))
+        self.assertFalse('upstream_channels' in history[len(history) - 1])
+        self.assertFalse('downstream_channels' in history[len(history) - 1])
+        self.assertFalse('uptime' in history[len(history) - 1])

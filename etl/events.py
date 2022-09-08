@@ -1,8 +1,8 @@
 import argparse
-import glob
 import json
 import logging
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Tuple, Union, Any
 
 import log_config
@@ -14,9 +14,9 @@ log_config.configure('events.log')
 logger = logging.getLogger('transformer')
 
 
-def handle_file(json_filename: str, device: HNAPDevice) -> dict:
-    with open(json_filename) as json_file:
-        logger.debug('Processing {}'.format(json_filename))
+def handle_file(input_file_path: Path, device: HNAPDevice) -> dict:
+    with input_file_path.open() as json_file:
+        logger.debug('Processing {}'.format(input_file_path))
         json_events = json.load(json_file)
 
     unknown_ts_events = []
@@ -41,7 +41,7 @@ def handle_file(json_filename: str, device: HNAPDevice) -> dict:
     if unknown_ts_events:
         process_unknown_timestamp_events(unknown_ts_events, ts, combined_file_events)
 
-    logger.debug('Found {} unique events from {}'.format((len(combined_file_events)), json_filename))
+    logger.debug('Found {} unique events from {}'.format((len(combined_file_events)), input_file_path))
     return combined_file_events
 
 
@@ -79,27 +79,31 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('device_id', choices=supported_devices.keys())
+    parser.add_argument('--delete-files', help='Delete files that get successfully processed')
     args = parser.parse_args()
 
     device = create_device(args.device_id)
 
     combined_events = {}
 
-    json_filenames = sorted(glob.glob('devices/{}/events/2022*.json'.format(args.device_id)))
-    logger.info('Checking {} files'.format(len(json_filenames)))
+    root_json_path = Path('devices', args.device_id, 'events')
+
+    input_filenames = sorted(root_json_path.glob('2022*.json'))
+    logger.info('Checking {} files'.format(len(input_filenames)))
     total_file_events = 0
-    for json_filename in json_filenames:
+    for input_filename in input_filenames:
         prev_combined_size = len(combined_events)
-        combined_file_events = handle_file(json_filename, device)
+        combined_file_events = handle_file(input_filename, device)
         total_file_events += len(combined_file_events)
         combined_events.update(combined_file_events)
-        logger.debug('Added {} events from {}'.format((len(combined_events) - prev_combined_size), json_filename))
+        logger.debug('Added {} events from {}'.format((len(combined_events) - prev_combined_size), input_filename))
 
     logger.info('Transformed {} file events into {} combined events'.format(total_file_events, len(combined_events)))
-    json_result = json.dumps(sorted(combined_events.keys(), key=lambda e: e.timestamp), default=lambda o: o.__dict__)
-    output_filename = 'devices/{}/events.json'.format(args.device_id)
-    with open(output_filename, 'w') as output_file:
-        output_file.write(json_result)
+    output_file_path = root_json_path / 'events.json'
+    with output_file_path.open(mode='w') as output_file:
+        json.dump(sorted(combined_events.keys(), key=lambda e: e.timestamp), fp=output_file,
+                  default=lambda o: o.__dict__,
+                  sort_keys=True, indent=2)
 
 
 if __name__ == '__main__':

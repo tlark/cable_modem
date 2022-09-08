@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 
 import log_config
-from devices import create_device
 from models import ConnectionDetails
 
 log_config.configure('details.log')
@@ -17,6 +16,9 @@ class TimestampedResult:
         self.timestamp = timestamp
         self.details = details
         self.error = error
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.__dict__)
 
 
 def extract_connection_stats(input_file_path: Path) -> TimestampedResult:
@@ -39,9 +41,9 @@ def is_channel_stats_changed(history: list, cur_stats: dict, cur_ts: str) -> boo
         # Compare (excluding the timestamp key) the last entry to this current one
         prev_ts_stats = history[len(history) - 1]
         prev_stats = dict(prev_ts_stats)
-        prev_stats.pop('timestamp')
+        prev_stats.pop('timestamp', None)
         if cur_stats == prev_stats:
-            logger.debug('No changes; prev={}, cur={}'.format(prev_stats, cur_stats))
+            logger.debug('No changes; ignoring {}'.format(cur_stats))
             return False
 
     # Change found...append entry to history
@@ -68,7 +70,41 @@ def transform_channel_stats(channel_type: str, timestamp: str, channel_stats_lis
         if is_channel_stats_changed(channel_stats_history, vars(cur_stats).copy(), timestamp):
             with channel_stats_file_path.open(mode='w') as json_file:
                 logger.debug('Updating {}'.format(channel_stats_file_path))
-                json_file.write(json.dumps(channel_stats_history))
+                json_file.write(json.dumps(channel_stats_history, sort_keys=True, indent=2))
+
+
+def transform_details(history: list, cur_stats: TimestampedResult) -> bool:
+    cur_startup_steps = cur_stats.details.startup_steps
+    cur_network_access = cur_stats.details.network_access
+    if history:
+        prev_details = history[len(history) - 1]
+        prev_startup_steps = prev_details.get('startup_steps', None)
+        prev_network_access = prev_details.get('network_access', None)
+        if prev_startup_steps == cur_startup_steps and prev_network_access == cur_network_access:
+            logger.debug('No changes; ignoring {}'.format(cur_stats))
+            return False
+
+    # Change found...append entry to history
+    cur_details = dict()
+    cur_details['startup_steps'] = cur_startup_steps
+    cur_details['network_access'] = cur_network_access
+    cur_details['timestamp'] = cur_stats.timestamp
+    history.append(cur_details)
+    return True
+
+
+def setup(root_path: Path, delete_src: bool) -> Path:
+    combined_details_file = 'details.json'
+
+    # If we're not deleting the source files, delete any existing target files
+    if not delete_src:
+        for sub_path_pattern in [combined_details_file, 'downstream/*.json', 'upstream/*.json']:
+            files_to_delete = sorted(root_path.glob(sub_path_pattern))
+            logger.info('Deleting {} files from {}/{}'.format(len(files_to_delete), root_path, sub_path_pattern))
+            for file_to_delete in files_to_delete:
+                logger.debug('Deleting {}'.format(file_to_delete))
+                file_to_delete.unlink()
+    return root_path / combined_details_file
 
 
 def main():
@@ -77,38 +113,46 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('device_id', choices=supported_devices.keys())
-    parser.add_argument('--delete-files', type=bool, help='Delete files that get successfully processed')
+    parser.add_argument('--delete-src', action='store_true', help='Delete source files if all processing succeeds')
     args = parser.parse_args()
 
-    device = create_device(args.device_id)
+    root_path = Path('devices', args.device_id, 'details')
 
+    combined_details_file = setup(root_path, args.delete_src)
     combined_details = list()
 
-    root_json_path = Path('devices', args.device_id, 'details')
-    input_filenames = sorted(root_json_path.glob('2022*.json'))
-    logger.info('Checking {} files'.format(len(input_filenames)))
-    for input_filename in input_filenames:
+    # If deleting source files, then start with the existing combined details
+    if args.delete_src:
+        if combined_details_file.exists():
+            with combined_details_file.open(mode='r') as fp:
+                combined_details = json.load(fp)
+    orig_details_size = len(combined_details)
+    logger.info('Found {} already combined details in {}'.format(orig_details_size, combined_details_file))
 
-        try:
-            stats = extract_connection_stats(input_filename)
+    details_files = sorted(root_path.glob('2022*.json'))
+    logger.info('Checking {} files'.format(len(details_files)))
+    for details_file in details_files:
+        stats = extract_connection_stats(details_file)
 
-            if stats.error:
-                combined_details.append({'timestamp': stats.timestamp, 'error': stats.error})
-            else:
-                transform_channel_stats('downstream', stats.timestamp, stats.details.downstream_channels, root_json_path)
-                transform_channel_stats('upstream', stats.timestamp, stats.details.upstream_channels, root_json_path)
+        if stats.error:
+            combined_details.append({'timestamp': stats.timestamp, 'error': stats.error})
+        else:
+            transform_channel_stats('downstream', stats.timestamp, stats.details.downstream_channels, root_path)
+            transform_channel_stats('upstream', stats.timestamp, stats.details.upstream_channels, root_path)
+            transform_details(combined_details, stats)
 
-            # Getting here means the file was successfully processed
-            if args.delete_files:
-                logger.info('Deleting {}'.format(input_filename))
-                input_filename.unlink()
-        except Exception as e:
-            logger.error('Processing {} FAILED ({})'.format(input_filename, e))
+    if orig_details_size != len(combined_details):
+        logger.info('Transformed {} files into {} combined details'.format(len(details_files), len(combined_details)))
+        with combined_details_file.open(mode='w') as fp:
+            json.dump(combined_details, fp, default=lambda o: o.__dict__, indent=2)
+    else:
+        logger.info('No new details found in {} files'.format(len(details_files)))
 
-    # json_result = json.dumps(sorted(combined_events.keys(), key=lambda e: e.timestamp), default=lambda o: o.__dict__)
-    # output_filename = 'devices/{}/details.json'.format(args.device_id)
-    # with open(output_filename, 'w') as output_file:
-    #     output_file.write(json_result)
+    if args.delete_src:
+        logger.info('Deleting {} files'.format(len(details_files)))
+        for details_file in details_files:
+            logger.debug('Deleting {}'.format(details_file))
+            details_file.unlink()
 
 
 if __name__ == '__main__':

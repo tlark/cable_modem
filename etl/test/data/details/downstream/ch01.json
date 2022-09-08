@@ -1,0 +1,22 @@
+[
+  {
+    "timestamp": "2022-09-07T11:22:33.000",
+    "channel_id": 1
+  },
+  {
+    "timestamp": "2022-09-07T11:22:33.100",
+    "channel_id": 1
+  },
+  {
+    "timestamp": "2022-09-07T11:22:33.200",
+    "channel_id": 1
+  },
+  {
+    "timestamp": "2022-09-07T11:22:33.300",
+    "channel_id": 1
+  },
+  {
+    "timestamp": "2022-09-07T11:22:33.400",
+    "channel_id": 1
+  }
+]

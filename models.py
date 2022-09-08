@@ -11,6 +11,9 @@ class DeviceInfo(object):
         self.downstream_power = None
         self.downstream_snr = None
 
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.__dict__)
+
 
 class ConnectionSummary(object):
     def __init__(self):
@@ -26,7 +29,10 @@ class ConnectionSummary(object):
         self.sw_customer_version = None
 
     def __eq__(self, other):
-        return vars(self) == vars(other)
+        return vars(self) == vars(other) if not isinstance(other, dict) else other
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.__dict__)
 
 
 class ConnectionDetails(object):
@@ -52,6 +58,9 @@ class ConnectionDetails(object):
         else:
             self.upstream_channels = list()
 
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.__dict__)
+
 
 class StartupStep(object):
     def __init__(self, status=None, comment=None):
@@ -59,7 +68,10 @@ class StartupStep(object):
         self.comment = comment
 
     def __eq__(self, other):
-        return vars(self) == vars(other)
+        return vars(self) == vars(other) if not isinstance(other, dict) else other
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.__dict__)
 
 
 class ChannelStats(object):
@@ -70,7 +82,10 @@ class ChannelStats(object):
         self.power_dbmv = power_dbmv
 
     def __eq__(self, other):
-        return vars(self) == vars(other)
+        return vars(self) == vars(other) if not isinstance(other, dict) else other
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.__dict__)
 
 
 class DownstreamChannelStats(ChannelStats):
@@ -101,3 +116,6 @@ class EventLogEntry(object):
 
     def __hash__(self):
         return hash((self.timestamp, self.priority, self.desc))
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.__dict__)
