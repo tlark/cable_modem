@@ -1,0 +1,165 @@
+{
+  "timestamp": "2022-09-09T09:45:04.499721",
+  "result": [
+    {
+      "timestamp": "0001-01-01T00:00:01",
+      "priority": "Critical (3)",
+      "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "0001-01-01T00:00:02",
+      "priority": "Critical (3)",
+      "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "0001-01-01T00:00:03",
+      "priority": "Critical (3)",
+      "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "0001-01-01T00:00:04",
+      "priority": "Critical (3)",
+      "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "0001-01-01T00:00:05",
+      "priority": "Critical (3)",
+      "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "0001-01-01T00:00:06",
+      "priority": "Critical (3)",
+      "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:35",
+      "priority": "Critical (3)",
+      "desc": "Started Unicast Maintenance Ranging - No Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:36",
+      "priority": "Critical (3)",
+      "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:37",
+      "priority": "Critical (3)",
+      "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:38",
+      "priority": "Critical (3)",
+      "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:39",
+      "priority": "Critical (3)",
+      "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:40",
+      "priority": "Critical (3)",
+      "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:41",
+      "priority": "Critical (3)",
+      "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:42",
+      "priority": "Critical (3)",
+      "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:43",
+      "priority": "Critical (3)",
+      "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:44",
+      "priority": "Critical (3)",
+      "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:45",
+      "priority": "Critical (3)",
+      "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:46",
+      "priority": "Critical (3)",
+      "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:47",
+      "priority": "Critical (3)",
+      "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:48",
+      "priority": "Critical (3)",
+      "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:49",
+      "priority": "Critical (3)",
+      "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:50",
+      "priority": "Critical (3)",
+      "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:51",
+      "priority": "Critical (3)",
+      "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:52",
+      "priority": "Critical (3)",
+      "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:53",
+      "priority": "Critical (3)",
+      "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:54",
+      "priority": "Critical (3)",
+      "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:55",
+      "priority": "Critical (3)",
+      "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:56",
+      "priority": "Notice (6)",
+      "desc": "Honoring MDD; IP provisioning mode = APM"
+    },
+    {
+      "timestamp": "2022-09-07T13:37:57",
+      "priority": "Critical (3)",
+      "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-09T04:02:31",
+      "priority": "Warning (5)",
+      "desc": "DHCP WARNING - Non-critical field invalid in response ;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-09T04:02:31",
+      "priority": "Error (4)",
+      "desc": "Primary address failed, secondary active;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    },
+    {
+      "timestamp": "2022-09-09T09:04:22",
+      "priority": "Critical (3)",
+      "desc": "Started Unicast Maintenance Ranging - No Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+    }
+  ]
+}

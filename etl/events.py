@@ -3,66 +3,20 @@ import json
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Tuple, Union, Any
+from typing import Tuple, Union, Any, List, Dict
 
 import log_config
 from devices import create_device
+from etl import finalize_target_files, sort_unique_ts_history
 from hnap import HNAPDevice
 from models import EventLogEntry
 
 log_config.configure('events.log')
 logger = logging.getLogger('transformer')
+combined_file = 'events.json'
 
 
-def handle_file(input_file: Path, device: HNAPDevice) -> dict:
-    with input_file.open() as file:
-        logger.debug('Processing {}'.format(input_file))
-        json_events = json.load(file)
-
-    unknown_ts_events = []
-    combined_file_events = {}
-    ts = None
-    synthetic_ts = datetime.fromisoformat('1970-01-01T00:00:00')
-
-    if not isinstance(json_events, list):
-        json_events = json_events['result']
-    for json_event in json_events:
-        ts, synthetic_ts = get_event_timestamp(json_event, synthetic_ts, device)
-        event = EventLogEntry(timestamp=ts, priority=json_event.get('priority'), desc=json_event.get('desc'))
-
-        # Collect unknown ts events.  Once we have a real ts, coerce the unknown events using the current ts.
-        if ts.year == 1970:
-            unknown_ts_events.append(event)
-        else:
-            combined_file_events[event] = None
-            process_unknown_timestamp_events(unknown_ts_events, ts, combined_file_events)
-
-    # If the last event(s) in the file are unknown, process those now
-    if unknown_ts_events:
-        process_unknown_timestamp_events(unknown_ts_events, ts, combined_file_events)
-
-    logger.debug('Found {} unique events from {}'.format((len(combined_file_events)), input_file))
-    return combined_file_events
-
-
-def process_unknown_timestamp_events(unknown_ts_events: list, cur_ts: datetime, combined_events: dict):
-    # Now, coerce any unknown timestamps based on this current event timestamp
-    prev_offset = None
-    prev_ts = cur_ts
-    for unknown_ts_event in reversed(unknown_ts_events):
-        unknown_ts = datetime.fromisoformat(unknown_ts_event.timestamp)
-        offset = timedelta(minutes=unknown_ts.minute, seconds=unknown_ts.second)
-        new_ts = prev_ts - ((prev_offset - offset) if prev_offset else offset)
-        unknown_ts_event.timestamp = new_ts.isoformat()
-        combined_events[unknown_ts_event] = None
-
-        prev_offset = offset
-        prev_ts = new_ts
-    unknown_ts_events.clear()
-
-
-def get_event_timestamp(event: dict, synthetic_ts: datetime, device: HNAPDevice) -> Tuple[
-    Union[datetime, Any], datetime]:
+def get_event_ts(event: dict, synthetic_ts: datetime, device: HNAPDevice) -> Tuple[Union[datetime, Any], datetime]:
     if event.get('timestamp', None):
         ts = datetime.fromisoformat(event.get('timestamp'))
     else:
@@ -71,21 +25,101 @@ def get_event_timestamp(event: dict, synthetic_ts: datetime, device: HNAPDevice)
         except ValueError:
             synthetic_ts += timedelta(seconds=1)
             ts = synthetic_ts
+
+    # Force ts year to be no earlier than epoch since we're doing math
+    if ts.year < 1970:
+        ts = ts.replace(year=1970)
     return ts, synthetic_ts
 
 
-def setup(root_path: Path, delete_src: bool) -> Path:
-    combined_file = 'events.json'
+def process_unknown_ts_events(unknown_ts_events: List[EventLogEntry], cur_ts: datetime,
+                              combined_events: Dict[EventLogEntry, None]):
+    # Now, coerce any unknown timestamps based on this current event timestamp
+    prev_offset = None
+    prev_ts = cur_ts
+    for unknown_ts_event in reversed(unknown_ts_events):
+        unknown_ts = datetime.fromisoformat(unknown_ts_event.timestamp)
 
-    # If we're not deleting the source files, delete any existing target files
-    if not delete_src:
-        for sub_path_pattern in [combined_file]:
-            files_to_delete = sorted(root_path.glob(sub_path_pattern))
-            logger.info('Deleting {} files from {}/{}'.format(len(files_to_delete), root_path, sub_path_pattern))
-            for file_to_delete in files_to_delete:
-                logger.debug('Deleting {}'.format(file_to_delete))
-                file_to_delete.unlink()
-    return root_path / combined_file
+        # Since we need to keep going back in time, if the unknown ts has the SAME minute/second
+        # as the previous one, manually increment it
+        offset = timedelta(minutes=unknown_ts.minute, seconds=unknown_ts.second)
+        if offset == prev_offset:
+            backup_delta = prev_offset if prev_offset else offset
+        else:
+            backup_delta = ((prev_offset - offset) if prev_offset else offset)
+
+        new_ts = prev_ts - backup_delta
+        unknown_ts_event.timestamp = new_ts.isoformat()
+        combined_events[unknown_ts_event] = None
+
+        prev_offset = offset
+        prev_ts = new_ts
+    unknown_ts_events.clear()
+
+
+def combine_events(events: List[dict], device: HNAPDevice) -> List[dict]:
+    unknown_ts_events = []
+    # Use a dict instead of a set to preserve ts order
+    combined_events = {}
+    ts = None
+    synthetic_ts = datetime.fromisoformat('1970-01-01T00:00:00')
+
+    for event in events:
+        ts, synthetic_ts = get_event_ts(event, synthetic_ts, device)
+        event_entry = EventLogEntry(timestamp=ts, priority=event.get('priority'), desc=event.get('desc'))
+
+        # Collect unknown ts events.  Once we have a real ts, coerce the unknown events using the current ts.
+        if ts.year <= 1970:
+            unknown_ts_events.append(event_entry)
+        else:
+            combined_events[event_entry] = None
+            process_unknown_ts_events(unknown_ts_events, ts, combined_events)
+
+    # If the last event(s) in the file are unknown, process those now
+    if unknown_ts_events:
+        process_unknown_ts_events(unknown_ts_events, ts, combined_events)
+
+    combined_events_list = sorted(list(combined_events), key=lambda e: e.timestamp)
+    return json.loads(json.dumps(combined_events_list, default=lambda o: o.__dict__))
+
+
+def extract_events(src_file: Path) -> List[dict]:
+    if not src_file.exists():
+        logger.warning('{} does not exist'.format(src_file))
+        return list()
+
+    with src_file.open() as file:
+        logger.info('Processing {}'.format(src_file))
+        cur_events = json.load(file)
+
+    # 2 versions of source files exist: One with a list of events and one with 'result' value is the list of events
+    if not isinstance(cur_events, list):
+        cur_events = cur_events['result']
+    return cur_events
+
+
+def transform_events(cur_events: List[dict], combined_events_file: Path, device: HNAPDevice) -> bool:
+    if not cur_events:
+        return False
+
+    orig_size = len(cur_events)
+    cur_events = combine_events(cur_events, device)
+    logger.debug('Found {} unique events from {} total'.format(len(cur_events), orig_size))
+
+    events_history = list()
+    if combined_events_file.exists():
+        with combined_events_file.open() as json_file:
+            logger.debug('Reading {}'.format(combined_events_file))
+            events_history = json.load(json_file)
+
+    updated_events_history = sort_unique_ts_history(events_history + cur_events)
+    if events_history == updated_events_history:
+        return False
+
+    with combined_events_file.open(mode='w') as json_file:
+        logger.debug('Updating {} with {} entries'.format(combined_events_file, len(updated_events_history)))
+        json.dump(updated_events_history, fp=json_file, default=lambda o: o.__dict__, sort_keys=True, indent=2)
+    return True
 
 
 def main():
@@ -94,44 +128,27 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('device_id', choices=supported_devices.keys())
-    parser.add_argument('--delete-src', action='store_true', help='Delete source files if all processing succeeds')
     args = parser.parse_args()
 
     root_path = Path('devices', args.device_id, 'events')
-
-    combined_events_file = setup(root_path, args.delete_src)
-    combined_events = dict()
-
-    # If deleting source files, then start with the existing combined events
-    if args.delete_src:
-        if combined_events_file.exists():
-            with combined_events_file.open(mode='r') as fp:
-                combined_events = {e: None for e in json.load(fp)}
-    orig_combined_size = len(combined_events)
-    logger.info('Found {} already combined events in {}'.format(orig_combined_size, combined_events_file))
+    processed_path = root_path / Path('processed')
+    processed_path.mkdir(exist_ok=True)
+    combined_events_file = root_path / Path(combined_file)
 
     device = create_device(args.device_id)
 
     src_files = sorted(root_path.glob('2022*.json'))
-    logger.info('Checking {} files'.format(len(src_files)))
-    total_file_events = 0
+    logger.info('Checking {} files in {}'.format(len(src_files), root_path))
     for src_file in src_files:
-        prev_combined_size = len(combined_events)
-        combined_file_events = handle_file(src_file, device)
-        total_file_events += len(combined_file_events)
-        combined_events.update(combined_file_events)
-        logger.debug('Added {} events from {}'.format((len(combined_events) - prev_combined_size), src_file))
+        events = extract_events(src_file)
+        transform_events(events, combined_events_file, device)
 
-    logger.info('Transformed {} file events into {} combined events'.format(total_file_events, len(combined_events)))
-    with combined_events_file.open(mode='w') as file:
-        json.dump(sorted(combined_events.keys(), key=lambda e: e.timestamp), fp=file, default=lambda o: o.__dict__,
-                  sort_keys=True, indent=2)
+        # Getting here means the source file has been completely processed
+        # Move source file to processed area
+        src_file.rename(processed_path / src_file.name)
 
-    if args.delete_src:
-        logger.info('Deleting {} files'.format(len(src_files)))
-        for src_file in src_files:
-            logger.debug('Deleting {}'.format(src_file))
-            src_file.unlink()
+    # Finalize all target files: combined_file, upstream/*.json and downstream/*.json
+    finalize_target_files(root_path, [combined_file], logger)
 
 
 if __name__ == '__main__':

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List
 
 import log_config
+from etl import finalize_target_files
 from models import ConnectionDetails, ChannelStats
 
 log_config.configure('details.log')
@@ -122,36 +123,6 @@ def transform_details(cur_stats: TimestampedResult, combined_details_file: Path)
     return changed
 
 
-def finalize_target_file(target_file: Path) -> bool:
-    if not target_file.exists():
-        return False
-
-    with target_file.open(mode='r') as json_file:
-        logger.debug('Reading {}'.format(target_file))
-        ts_history = json.load(json_file)
-
-    # Remove duplicates and sort
-    unique_ts_history = {json.dumps(d, sort_keys=True) for d in ts_history}
-    unique_ts_history = [json.loads(d) for d in unique_ts_history]
-    unique_ts_history = sorted(unique_ts_history, key=lambda e: e.get('timestamp', None))
-    if ts_history == unique_ts_history:
-        return False
-
-    with target_file.open(mode='w') as json_file:
-        logger.debug('Updating {} from {} to {} entries'.format(target_file, len(ts_history), len(unique_ts_history)))
-        json.dump(unique_ts_history, fp=json_file, default=lambda o: o.__dict__, sort_keys=True, indent=2)
-
-
-def complete(root_path: Path):
-    # Sort and remove duplicates from combined_file, upstream/*.json and downstream/*.json
-    for sub_path_pattern in [combined_file, 'downstream/*.json', 'upstream/*.json']:
-        target_files = sorted(root_path.glob(sub_path_pattern))
-        logger.info('Finalizing {} target files from {}/{}'.format(len(target_files), root_path, sub_path_pattern))
-        for target_file in target_files:
-            changed = finalize_target_file(target_file)
-            logger.debug('Finalized {}; changed?={}'.format(target_file, changed))
-
-
 def main():
     with open('devices/devices.json') as devices_file:
         supported_devices = json.load(devices_file)
@@ -166,7 +137,7 @@ def main():
     combined_details_file = root_path / Path(combined_file)
 
     src_files = sorted(root_path.glob('2022*.json'))
-    logger.info('Checking {} files'.format(len(src_files)))
+    logger.info('Checking {} files in {}'.format(len(src_files), root_path))
     for src_file in src_files:
         stats = extract_connection_stats(src_file)
 
@@ -179,7 +150,8 @@ def main():
         # Move source file to processed area
         src_file.rename(processed_path / src_file.name)
 
-    complete(root_path)
+    # Finalize all target files: combined_file, upstream/*.json and downstream/*.json
+    finalize_target_files(root_path, [combined_file, 'downstream/*.json', 'upstream/*.json'], logger)
 
 
 if __name__ == '__main__':

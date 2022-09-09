@@ -1,0 +1,194 @@
+[
+  {
+    "date": "Tue Aug 16 2022",
+    "time": "18:13:11",
+    "priority": "Critical (3)",
+    "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "00:01:00",
+    "priority": "Critical (3)",
+    "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "11:38:33",
+    "priority": "Critical (3)",
+    "desc": "Started Unicast Maintenance Ranging - No Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "11:42:13",
+    "priority": "Critical (3)",
+    "desc": "Received Response to Broadcast Maintenance Request, But no Unicast Maintenance opportunities received - T4 time out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "11:42:29",
+    "priority": "Critical (3)",
+    "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "11:42:31",
+    "priority": "Critical (3)",
+    "desc": "Received Response to Broadcast Maintenance Request, But no Unicast Maintenance opportunities received - T4 time out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "11:42:31",
+    "priority": "Critical (3)",
+    "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "11:42:33",
+    "priority": "Critical (3)",
+    "desc": "Received Response to Broadcast Maintenance Request, But no Unicast Maintenance opportunities received - T4 time out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "11:43:14",
+    "priority": "Critical (3)",
+    "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "11:43:56",
+    "priority": "Critical (3)",
+    "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "17:49:37",
+    "priority": "Critical (3)",
+    "desc": "Started Unicast Maintenance Ranging - No Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "17:53:25",
+    "priority": "Critical (3)",
+    "desc": "Received Response to Broadcast Maintenance Request, But no Unicast Maintenance opportunities received - T4 time out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "17:53:29",
+    "priority": "Critical (3)",
+    "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "17:53:35",
+    "priority": "Critical (3)",
+    "desc": "Received Response to Broadcast Maintenance Request, But no Unicast Maintenance opportunities received - T4 time out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "17:53:35",
+    "priority": "Critical (3)",
+    "desc": "No Ranging Response received - T3 time-out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "17:53:37",
+    "priority": "Critical (3)",
+    "desc": "Received Response to Broadcast Maintenance Request, But no Unicast Maintenance opportunities received - T4 time out;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "17:54:10",
+    "priority": "Critical (3)",
+    "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "SYNC Timing Synchronization failure - Failed to acquire QAM/QPSK symbol timing;;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:00:00:00:00:00;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Notice (6)",
+    "desc": "Honoring MDD; IP provisioning mode = APM"
+  },
+  {
+    "date": "",
+    "time": "Time Not Established",
+    "priority": "Critical (3)",
+    "desc": "DHCP failed - RS sent, no RA received;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "18:14:44",
+    "priority": "Warning (5)",
+    "desc": "DHCP WARNING - Non-critical field invalid in response ;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  },
+  {
+    "date": "Wed Aug 17 2022",
+    "time": "18:14:44",
+    "priority": "Error (4)",
+    "desc": "Primary address failed, secondary active;CM-MAC=00:40:36:8c:cc:2d;CMTS-MAC=00:01:5c:be:54:36;CM-QOS=1.1;CM-VER=3.1;"
+  }
+]
