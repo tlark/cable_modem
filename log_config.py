@@ -16,7 +16,7 @@ LOG_CONFIG = {
         },
         'transformer': {
             'handlers': ['fileHandler'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': False
         }
     },

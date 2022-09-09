@@ -3,12 +3,14 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import List
 
 import log_config
-from models import ConnectionDetails
+from models import ConnectionDetails, ChannelStats
 
 log_config.configure('details.log')
 logger = logging.getLogger('transformer')
+combined_file = 'details.json'
 
 
 class TimestampedResult:
@@ -36,11 +38,10 @@ def extract_connection_stats(input_file_path: Path) -> TimestampedResult:
         return TimestampedResult(timestamp=timestamp, details=ConnectionDetails(**result))
 
 
-def is_channel_stats_changed(history: list, cur_stats: dict, cur_ts: str) -> bool:
-    if history:
+def is_channel_stats_changed(json_history: List[dict], cur_stats: dict, cur_ts: str) -> bool:
+    if json_history:
         # Compare (excluding the timestamp key) the last entry to this current one
-        prev_ts_stats = history[len(history) - 1]
-        prev_stats = dict(prev_ts_stats)
+        prev_stats = json_history[len(json_history) - 1].copy()
         prev_stats.pop('timestamp', None)
         if cur_stats == prev_stats:
             logger.debug('No changes; ignoring {}'.format(cur_stats))
@@ -49,35 +50,37 @@ def is_channel_stats_changed(history: list, cur_stats: dict, cur_ts: str) -> boo
     # Change found...append entry to history
     cur_ts_stats = cur_stats.copy()
     cur_ts_stats['timestamp'] = cur_ts
-    history.append(cur_ts_stats)
+    json_history.append(cur_ts_stats)
     return True
 
 
-def transform_channel_stats(channel_type: str, timestamp: str, channel_stats_list: list, root_json_path: Path):
-    channel_stats_path = root_json_path / channel_type
+def transform_channel_stats(channel_type: str, timestamp: str, cur_stats_list: List[ChannelStats], root_path: Path):
+    channel_stats_path = root_path / channel_type
     channel_stats_path.mkdir(exist_ok=True)
 
-    for cur_stats in channel_stats_list:
+    for cur_stats in cur_stats_list:
         logger.debug('Processing {} channel {}'.format(channel_type, cur_stats.channel_id))
-        channel_stats_file_path = channel_stats_path / f'ch{cur_stats.channel_id:02}.json'
+        channel_stats_file = channel_stats_path / f'ch{cur_stats.channel_id:02}.json'
 
         channel_stats_history = list()
-        if channel_stats_file_path.exists():
-            with channel_stats_file_path.open() as json_file:
-                logger.debug('Reading {}'.format(channel_stats_file_path))
+        if channel_stats_file.exists():
+            with channel_stats_file.open() as json_file:
+                logger.debug('Reading {}'.format(channel_stats_file))
                 channel_stats_history = json.load(json_file)
 
-        if is_channel_stats_changed(channel_stats_history, vars(cur_stats).copy(), timestamp):
-            with channel_stats_file_path.open(mode='w') as json_file:
-                logger.debug('Updating {}'.format(channel_stats_file_path))
-                json_file.write(json.dumps(channel_stats_history, sort_keys=True, indent=2))
+        if is_channel_stats_changed(channel_stats_history, vars(cur_stats), timestamp):
+            with channel_stats_file.open(mode='w') as json_file:
+                logger.debug('Updating {} with {} entries'.format(channel_stats_file, len(channel_stats_history)))
+                json.dump(channel_stats_history, fp=json_file, default=lambda o: o.__dict__, sort_keys=True, indent=2)
 
 
-def transform_details(history: list, cur_stats: TimestampedResult) -> bool:
+def transform_details_stats(cur_stats: TimestampedResult, details_history: List[dict]) -> bool:
+    # Determine if the current stats are different than the previous entry
     cur_startup_steps = cur_stats.details.startup_steps
     cur_network_access = cur_stats.details.network_access
-    if history:
-        prev_details = history[len(history) - 1]
+
+    if details_history:
+        prev_details = details_history[len(details_history) - 1]
         prev_startup_steps = prev_details.get('startup_steps', None)
         prev_network_access = prev_details.get('network_access', None)
         if prev_startup_steps == cur_startup_steps and prev_network_access == cur_network_access:
@@ -86,25 +89,67 @@ def transform_details(history: list, cur_stats: TimestampedResult) -> bool:
 
     # Change found...append entry to history
     cur_details = dict()
+    cur_details['timestamp'] = cur_stats.timestamp
     cur_details['startup_steps'] = cur_startup_steps
     cur_details['network_access'] = cur_network_access
-    cur_details['timestamp'] = cur_stats.timestamp
-    history.append(cur_details)
+    details_history.append(cur_details)
     return True
 
 
-def setup(root_path: Path, delete_src: bool) -> Path:
-    combined_details_file = 'details.json'
+def transform_details(cur_stats: TimestampedResult, combined_details_file: Path) -> bool:
+    cur_details = dict()
 
-    # If we're not deleting the source files, delete any existing target files
-    if not delete_src:
-        for sub_path_pattern in [combined_details_file, 'downstream/*.json', 'upstream/*.json']:
-            files_to_delete = sorted(root_path.glob(sub_path_pattern))
-            logger.info('Deleting {} files from {}/{}'.format(len(files_to_delete), root_path, sub_path_pattern))
-            for file_to_delete in files_to_delete:
-                logger.debug('Deleting {}'.format(file_to_delete))
-                file_to_delete.unlink()
-    return root_path / combined_details_file
+    details_history = list()
+    if combined_details_file.exists():
+        with combined_details_file.open() as json_file:
+            logger.debug('Reading {}'.format(combined_details_file))
+            details_history = json.load(json_file)
+
+    # If the result is an error (instead of actual stats), simply append to the history
+    if cur_stats.error:
+        cur_details['timestamp'] = cur_stats.timestamp
+        cur_details['error'] = cur_stats.error
+        details_history.append(cur_details)
+        changed = True
+    else:
+        changed = transform_details_stats(cur_stats, details_history)
+
+    if changed:
+        with combined_details_file.open(mode='w') as json_file:
+            logger.debug('Updating {} with {} entries'.format(combined_details_file, len(details_history)))
+            json.dump(details_history, fp=json_file, default=lambda o: o.__dict__, sort_keys=True, indent=2)
+
+    return changed
+
+
+def finalize_target_file(target_file: Path) -> bool:
+    if not target_file.exists():
+        return False
+
+    with target_file.open(mode='r') as json_file:
+        logger.debug('Reading {}'.format(target_file))
+        ts_history = json.load(json_file)
+
+    # Remove duplicates and sort
+    unique_ts_history = {json.dumps(d, sort_keys=True) for d in ts_history}
+    unique_ts_history = [json.loads(d) for d in unique_ts_history]
+    unique_ts_history = sorted(unique_ts_history, key=lambda e: e.get('timestamp', None))
+    if ts_history == unique_ts_history:
+        return False
+
+    with target_file.open(mode='w') as json_file:
+        logger.debug('Updating {} from {} to {} entries'.format(target_file, len(ts_history), len(unique_ts_history)))
+        json.dump(unique_ts_history, fp=json_file, default=lambda o: o.__dict__, sort_keys=True, indent=2)
+
+
+def complete(root_path: Path):
+    # Sort and remove duplicates from combined_file, upstream/*.json and downstream/*.json
+    for sub_path_pattern in [combined_file, 'downstream/*.json', 'upstream/*.json']:
+        target_files = sorted(root_path.glob(sub_path_pattern))
+        logger.info('Finalizing {} target files from {}/{}'.format(len(target_files), root_path, sub_path_pattern))
+        for target_file in target_files:
+            changed = finalize_target_file(target_file)
+            logger.debug('Finalized {}; changed?={}'.format(target_file, changed))
 
 
 def main():
@@ -113,46 +158,28 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('device_id', choices=supported_devices.keys())
-    parser.add_argument('--delete-src', action='store_true', help='Delete source files if all processing succeeds')
     args = parser.parse_args()
 
     root_path = Path('devices', args.device_id, 'details')
+    processed_path = root_path / Path('processed')
+    processed_path.mkdir(exist_ok=True)
+    combined_details_file = root_path / Path(combined_file)
 
-    combined_details_file = setup(root_path, args.delete_src)
-    combined_details = list()
+    src_files = sorted(root_path.glob('2022*.json'))
+    logger.info('Checking {} files'.format(len(src_files)))
+    for src_file in src_files:
+        stats = extract_connection_stats(src_file)
 
-    # If deleting source files, then start with the existing combined details
-    if args.delete_src:
-        if combined_details_file.exists():
-            with combined_details_file.open(mode='r') as fp:
-                combined_details = json.load(fp)
-    orig_details_size = len(combined_details)
-    logger.info('Found {} already combined details in {}'.format(orig_details_size, combined_details_file))
-
-    details_files = sorted(root_path.glob('2022*.json'))
-    logger.info('Checking {} files'.format(len(details_files)))
-    for details_file in details_files:
-        stats = extract_connection_stats(details_file)
-
-        if stats.error:
-            combined_details.append({'timestamp': stats.timestamp, 'error': stats.error})
-        else:
+        transform_details(stats, combined_details_file)
+        if not stats.error:
             transform_channel_stats('downstream', stats.timestamp, stats.details.downstream_channels, root_path)
             transform_channel_stats('upstream', stats.timestamp, stats.details.upstream_channels, root_path)
-            transform_details(combined_details, stats)
 
-    if orig_details_size != len(combined_details):
-        logger.info('Transformed {} files into {} combined details'.format(len(details_files), len(combined_details)))
-        with combined_details_file.open(mode='w') as fp:
-            json.dump(combined_details, fp, default=lambda o: o.__dict__, indent=2)
-    else:
-        logger.info('No new details found in {} files'.format(len(details_files)))
+        # Getting here means the source file has been completely processed
+        # Move source file to processed area
+        src_file.rename(processed_path / src_file.name)
 
-    if args.delete_src:
-        logger.info('Deleting {} files'.format(len(details_files)))
-        for details_file in details_files:
-            logger.debug('Deleting {}'.format(details_file))
-            details_file.unlink()
+    complete(root_path)
 
 
 if __name__ == '__main__':

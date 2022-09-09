@@ -14,10 +14,10 @@ log_config.configure('events.log')
 logger = logging.getLogger('transformer')
 
 
-def handle_file(input_file_path: Path, device: HNAPDevice) -> dict:
-    with input_file_path.open() as json_file:
-        logger.debug('Processing {}'.format(input_file_path))
-        json_events = json.load(json_file)
+def handle_file(input_file: Path, device: HNAPDevice) -> dict:
+    with input_file.open() as file:
+        logger.debug('Processing {}'.format(input_file))
+        json_events = json.load(file)
 
     unknown_ts_events = []
     combined_file_events = {}
@@ -41,7 +41,7 @@ def handle_file(input_file_path: Path, device: HNAPDevice) -> dict:
     if unknown_ts_events:
         process_unknown_timestamp_events(unknown_ts_events, ts, combined_file_events)
 
-    logger.debug('Found {} unique events from {}'.format((len(combined_file_events)), input_file_path))
+    logger.debug('Found {} unique events from {}'.format((len(combined_file_events)), input_file))
     return combined_file_events
 
 
@@ -61,7 +61,8 @@ def process_unknown_timestamp_events(unknown_ts_events: list, cur_ts: datetime, 
     unknown_ts_events.clear()
 
 
-def get_event_timestamp(event: dict, synthetic_ts: datetime, device: HNAPDevice) -> Tuple[Union[datetime, Any], datetime]:
+def get_event_timestamp(event: dict, synthetic_ts: datetime, device: HNAPDevice) -> Tuple[
+    Union[datetime, Any], datetime]:
     if event.get('timestamp', None):
         ts = datetime.fromisoformat(event.get('timestamp'))
     else:
@@ -73,37 +74,64 @@ def get_event_timestamp(event: dict, synthetic_ts: datetime, device: HNAPDevice)
     return ts, synthetic_ts
 
 
+def setup(root_path: Path, delete_src: bool) -> Path:
+    combined_file = 'events.json'
+
+    # If we're not deleting the source files, delete any existing target files
+    if not delete_src:
+        for sub_path_pattern in [combined_file]:
+            files_to_delete = sorted(root_path.glob(sub_path_pattern))
+            logger.info('Deleting {} files from {}/{}'.format(len(files_to_delete), root_path, sub_path_pattern))
+            for file_to_delete in files_to_delete:
+                logger.debug('Deleting {}'.format(file_to_delete))
+                file_to_delete.unlink()
+    return root_path / combined_file
+
+
 def main():
     with open('devices/devices.json') as devices_file:
         supported_devices = json.load(devices_file)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('device_id', choices=supported_devices.keys())
-    parser.add_argument('--delete-files', help='Delete files that get successfully processed')
+    parser.add_argument('--delete-src', action='store_true', help='Delete source files if all processing succeeds')
     args = parser.parse_args()
+
+    root_path = Path('devices', args.device_id, 'events')
+
+    combined_events_file = setup(root_path, args.delete_src)
+    combined_events = dict()
+
+    # If deleting source files, then start with the existing combined events
+    if args.delete_src:
+        if combined_events_file.exists():
+            with combined_events_file.open(mode='r') as fp:
+                combined_events = {e: None for e in json.load(fp)}
+    orig_combined_size = len(combined_events)
+    logger.info('Found {} already combined events in {}'.format(orig_combined_size, combined_events_file))
 
     device = create_device(args.device_id)
 
-    combined_events = {}
-
-    root_json_path = Path('devices', args.device_id, 'events')
-
-    input_filenames = sorted(root_json_path.glob('2022*.json'))
-    logger.info('Checking {} files'.format(len(input_filenames)))
+    src_files = sorted(root_path.glob('2022*.json'))
+    logger.info('Checking {} files'.format(len(src_files)))
     total_file_events = 0
-    for input_filename in input_filenames:
+    for src_file in src_files:
         prev_combined_size = len(combined_events)
-        combined_file_events = handle_file(input_filename, device)
+        combined_file_events = handle_file(src_file, device)
         total_file_events += len(combined_file_events)
         combined_events.update(combined_file_events)
-        logger.debug('Added {} events from {}'.format((len(combined_events) - prev_combined_size), input_filename))
+        logger.debug('Added {} events from {}'.format((len(combined_events) - prev_combined_size), src_file))
 
     logger.info('Transformed {} file events into {} combined events'.format(total_file_events, len(combined_events)))
-    output_file_path = root_json_path / 'events.json'
-    with output_file_path.open(mode='w') as output_file:
-        json.dump(sorted(combined_events.keys(), key=lambda e: e.timestamp), fp=output_file,
-                  default=lambda o: o.__dict__,
+    with combined_events_file.open(mode='w') as file:
+        json.dump(sorted(combined_events.keys(), key=lambda e: e.timestamp), fp=file, default=lambda o: o.__dict__,
                   sort_keys=True, indent=2)
+
+    if args.delete_src:
+        logger.info('Deleting {} files'.format(len(src_files)))
+        for src_file in src_files:
+            logger.debug('Deleting {}'.format(src_file))
+            src_file.unlink()
 
 
 if __name__ == '__main__':

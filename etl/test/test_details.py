@@ -1,8 +1,9 @@
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest import TestCase
 
-from etl.details import extract_connection_stats, is_channel_stats_changed, transform_details
+from etl.details import extract_connection_stats, is_channel_stats_changed, transform_details_stats
 from hnap import HNAPDevice
 from models import ConnectionDetails, StartupStep
 
@@ -92,7 +93,7 @@ class TestDetails(TestCase):
         cur_ts_stats = extract_connection_stats(json_filepath)
 
         history = list()
-        self.assertTrue(transform_details(history, cur_ts_stats))
+        self.assertTrue(transform_details_stats(cur_ts_stats, history))
         self.assertEqual(1, len(history))
 
     def test_transform_details_when_no_change(self):
@@ -104,7 +105,7 @@ class TestDetails(TestCase):
         prev_ts_details['timestamp'] = datetime.fromisoformat(cur_ts_stats.timestamp) - timedelta(minutes=10)
         history.append(prev_ts_details)
 
-        self.assertFalse(transform_details(history, cur_ts_stats))
+        self.assertFalse(transform_details_stats(cur_ts_stats, history))
         self.assertEqual(1, len(history))
 
     def test_transform_details_when_change(self):
@@ -121,7 +122,7 @@ class TestDetails(TestCase):
         prev_ts_details['network_access'] = 'Denied'
         prev_ts_details['timestamp'] = datetime.fromisoformat(cur_ts_stats.timestamp) - timedelta(minutes=10)
         history.append(prev_ts_details)
-        self.assertTrue(transform_details(history, cur_ts_stats))
+        self.assertTrue(transform_details_stats(cur_ts_stats, history))
         self.assertEqual(2, len(history))
         self.assertFalse('upstream_channels' in history[len(history) - 1])
         self.assertFalse('downstream_channels' in history[len(history) - 1])
@@ -132,8 +133,22 @@ class TestDetails(TestCase):
         prev_ts_details['startup_steps'] = {'downstream': StartupStep(status='Not Ready')}
         prev_ts_details['timestamp'] = datetime.fromisoformat(cur_ts_stats.timestamp) - timedelta(minutes=5)
         history.append(prev_ts_details)
-        self.assertTrue(transform_details(history, cur_ts_stats))
+        self.assertTrue(transform_details_stats(cur_ts_stats, history))
         self.assertEqual(4, len(history))
         self.assertFalse('upstream_channels' in history[len(history) - 1])
         self.assertFalse('downstream_channels' in history[len(history) - 1])
         self.assertFalse('uptime' in history[len(history) - 1])
+
+    def test_dict_dups_and_sorting(self):
+        ts_history = list()
+        ts_history.append({'timestamp': '2022-09-09T00:00:00', 'details': {'k1': 'd1'}})
+        ts_history.append({'timestamp': '2022-09-09T00:00:00', 'details': {'k1': 'd2 same ts'}})
+        ts_history.append({'timestamp': '2022-09-09T00:00:01', 'details': {'k1': 'd3'}})
+        ts_history.append({'timestamp': '2022-09-09T00:00:02', 'details': {'k1': 'd4'}})
+        ts_history.append({'timestamp': '2022-09-09T00:00:01', 'details': {'k1': 'd3'}})
+
+        # Remove duplicates and sort
+        unique_ts_history = {json.dumps(d, sort_keys=True) for d in ts_history}
+        unique_ts_history = [json.loads(d) for d in unique_ts_history]
+        self.assertFalse(ts_history == unique_ts_history)
+        self.assertEqual(4, len(unique_ts_history))
