@@ -15,20 +15,20 @@ class TestDetails(TestCase):
         json_filepath = Path('data', 'details', '20220830_185833.json')
         act = extract_connection_stats(json_filepath)
         self.assertEqual(datetime(2022, 8, 30, 18, 58, 33).isoformat(), act.timestamp)
-        self.assertEqual(5, len(act.details.startup_steps))
-        self.assertEqual(4, len(act.details.upstream_channels))
-        self.assertEqual(32, len(act.details.downstream_channels))
-        self.assertEqual('Allowed', act.details.network_access)
+        self.assertEqual(5, len(act.result.startup_steps))
+        self.assertEqual(4, len(act.result.upstream_channels))
+        self.assertEqual(32, len(act.result.downstream_channels))
+        self.assertEqual('Allowed', act.result.network_access)
 
     def test_extract_connection_details_when_timestamp(self):
         json_filepath = Path('data', 'details', '20220907_120800.json')
         act = extract_connection_stats(json_filepath)
         # 2022-09-07T12:08:05.751985
         self.assertEqual(datetime(2022, 9, 7, 12, 8, 5, 751985).isoformat(), act.timestamp)
-        self.assertEqual(5, len(act.details.startup_steps))
-        self.assertEqual(4, len(act.details.upstream_channels))
-        self.assertEqual(32, len(act.details.downstream_channels))
-        self.assertEqual('Allowed', act.details.network_access)
+        self.assertEqual(5, len(act.result.startup_steps))
+        self.assertEqual(4, len(act.result.upstream_channels))
+        self.assertEqual(32, len(act.result.downstream_channels))
+        self.assertEqual('Allowed', act.result.network_access)
 
     def test_model_init(self):
         cd = ConnectionDetails()
@@ -39,8 +39,8 @@ class TestDetails(TestCase):
     def test_model_equality(self):
         json_filepath = Path('data', 'details', '20220907_120800.json')
         act = extract_connection_stats(json_filepath)
-        ch1 = act.details.downstream_channels[0]
-        ch2 = act.details.downstream_channels[1]
+        ch1 = act.result.downstream_channels[0]
+        ch2 = act.result.downstream_channels[1]
         self.assertNotEqual(ch1, ch2)
 
         # Assign ALL ch1 values to ch2 (should now be equal)
@@ -58,7 +58,7 @@ class TestDetails(TestCase):
         json_filepath = Path('data', 'details', '20220907_120800.json')
         cur_ts_stats = extract_connection_stats(json_filepath)
 
-        for cur_stats in cur_ts_stats.details.downstream_channels:
+        for cur_stats in cur_ts_stats.result.downstream_channels:
             history = list()
             self.assertTrue(is_channel_stats_changed(history, vars(cur_stats).copy(), cur_ts_stats.timestamp))
             self.assertEqual(1, len(history))
@@ -67,7 +67,7 @@ class TestDetails(TestCase):
         json_filepath = Path('data', 'details', '20220907_120800.json')
         cur_ts_stats = extract_connection_stats(json_filepath)
 
-        for cur_stats in cur_ts_stats.details.downstream_channels:
+        for cur_stats in cur_ts_stats.result.downstream_channels:
             history = list()
             prev_ts_stats = vars(cur_stats).copy()
             prev_ts_stats['timestamp'] = datetime.fromisoformat(cur_ts_stats.timestamp) - timedelta(minutes=10)
@@ -79,7 +79,7 @@ class TestDetails(TestCase):
         json_filepath = Path('data', 'details', '20220907_120800.json')
         cur_ts_stats = extract_connection_stats(json_filepath)
 
-        for cur_stats in cur_ts_stats.details.downstream_channels:
+        for cur_stats in cur_ts_stats.result.downstream_channels:
             history = list()
             prev_ts_stats = vars(cur_stats).copy()
             prev_ts_stats['corrected'] = cur_stats.corrected + 10
@@ -101,7 +101,7 @@ class TestDetails(TestCase):
         cur_ts_stats = extract_connection_stats(json_filepath)
 
         history = list()
-        prev_ts_details = vars(cur_ts_stats.details).copy()
+        prev_ts_details = vars(cur_ts_stats.result).copy()
         prev_ts_details['timestamp'] = datetime.fromisoformat(cur_ts_stats.timestamp) - timedelta(minutes=10)
         history.append(prev_ts_details)
 
@@ -113,7 +113,7 @@ class TestDetails(TestCase):
         cur_ts_stats = extract_connection_stats(json_filepath)
         history = list()
 
-        prev_ts_details = vars(cur_ts_stats.details).copy()
+        prev_ts_details = vars(cur_ts_stats.result).copy()
         prev_ts_details.pop('upstream_channels', None)
         prev_ts_details.pop('downstream_channels', None)
         prev_ts_details.pop('uptime', None)

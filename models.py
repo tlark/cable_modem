@@ -16,17 +16,19 @@ class DeviceInfo(object):
 
 
 class ConnectionSummary(object):
-    def __init__(self):
-        self.ip_address = None
-        self.mac_address = None
-        self.downstream_channel_count = 0
-        self.upstream_channel_count = 0
-        self.hw_version = None
-        self.sw_version = None
-        self.sw_spec_version = None
-        self.sw_serial = None
-        self.sw_cert_status = None
-        self.sw_customer_version = None
+    def __init__(self, ip_address=None, mac_address=None, downstream_channel_count=None, upstream_channel_count=None,
+                 hw_version=None, sw_version=None, sw_spec_version=None, sw_serial=None, sw_cert_status=None,
+                 sw_customer_version=None):
+        self.ip_address = ip_address
+        self.mac_address = mac_address
+        self.downstream_channel_count = downstream_channel_count
+        self.upstream_channel_count = upstream_channel_count
+        self.hw_version = hw_version
+        self.sw_version = sw_version
+        self.sw_spec_version = sw_spec_version
+        self.sw_serial = sw_serial
+        self.sw_cert_status = sw_cert_status
+        self.sw_customer_version = sw_customer_version
 
     def __eq__(self, other):
         return vars(self) == vars(other) if not isinstance(other, dict) else other

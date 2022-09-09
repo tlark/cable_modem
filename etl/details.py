@@ -6,22 +6,12 @@ from pathlib import Path
 from typing import List
 
 import log_config
-from etl import finalize_target_files
+from etl import finalize_target_files, compare_ts_history_with_current, TimestampedResult
 from models import ConnectionDetails, ChannelStats
 
 log_config.configure('details.log')
 logger = logging.getLogger('transformer')
 combined_file = 'details.json'
-
-
-class TimestampedResult:
-    def __init__(self, timestamp: str, details: ConnectionDetails = None, error: str = None):
-        self.timestamp = timestamp
-        self.details = details
-        self.error = error
-
-    def __repr__(self):
-        return '{}({})'.format(self.__class__.__name__, self.__dict__)
 
 
 def extract_connection_stats(input_file_path: Path) -> TimestampedResult:
@@ -36,23 +26,11 @@ def extract_connection_stats(input_file_path: Path) -> TimestampedResult:
     if 'error' in result:
         return TimestampedResult(timestamp=timestamp, error=result['error'])
     else:
-        return TimestampedResult(timestamp=timestamp, details=ConnectionDetails(**result))
+        return TimestampedResult(timestamp=timestamp, result=ConnectionDetails(**result))
 
 
 def is_channel_stats_changed(json_history: List[dict], cur_stats: dict, cur_ts: str) -> bool:
-    if json_history:
-        # Compare (excluding the timestamp key) the last entry to this current one
-        prev_stats = json_history[len(json_history) - 1].copy()
-        prev_stats.pop('timestamp', None)
-        if cur_stats == prev_stats:
-            logger.debug('No changes; ignoring {}'.format(cur_stats))
-            return False
-
-    # Change found...append entry to history
-    cur_ts_stats = cur_stats.copy()
-    cur_ts_stats['timestamp'] = cur_ts
-    json_history.append(cur_ts_stats)
-    return True
+    return compare_ts_history_with_current(json_history, cur_stats, cur_ts, logger)
 
 
 def transform_channel_stats(channel_type: str, timestamp: str, cur_stats_list: List[ChannelStats], root_path: Path):
@@ -77,8 +55,8 @@ def transform_channel_stats(channel_type: str, timestamp: str, cur_stats_list: L
 
 def transform_details_stats(cur_stats: TimestampedResult, details_history: List[dict]) -> bool:
     # Determine if the current stats are different than the previous entry
-    cur_startup_steps = cur_stats.details.startup_steps
-    cur_network_access = cur_stats.details.network_access
+    cur_startup_steps = cur_stats.result.startup_steps
+    cur_network_access = cur_stats.result.network_access
 
     if details_history:
         prev_details = details_history[len(details_history) - 1]
@@ -143,8 +121,8 @@ def main():
 
         transform_details(stats, combined_details_file)
         if not stats.error:
-            transform_channel_stats('downstream', stats.timestamp, stats.details.downstream_channels, root_path)
-            transform_channel_stats('upstream', stats.timestamp, stats.details.upstream_channels, root_path)
+            transform_channel_stats('downstream', stats.timestamp, stats.result.downstream_channels, root_path)
+            transform_channel_stats('upstream', stats.timestamp, stats.result.upstream_channels, root_path)
 
         # Getting here means the source file has been completely processed
         # Move source file to processed area

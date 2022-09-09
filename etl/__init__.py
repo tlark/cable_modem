@@ -3,11 +3,37 @@ from pathlib import Path
 from typing import List
 
 
+class TimestampedResult:
+    def __init__(self, timestamp: str, result=None, error: str = None):
+        self.timestamp = timestamp
+        self.result = result
+        self.error = error
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.__dict__)
+
+
 def sort_unique_ts_history(ts_history: List[dict]) -> List[dict]:
     unique_ts_history = {json.dumps(d, sort_keys=True) for d in ts_history}
     unique_ts_history = [json.loads(d) for d in unique_ts_history]
     unique_ts_history = sorted(unique_ts_history, key=lambda e: e.get('timestamp', None))
     return unique_ts_history
+
+
+def compare_ts_history_with_current(ts_history: List[dict], cur_result: dict, cur_ts: str, logger) -> bool:
+    if ts_history:
+        # Compare (excluding the timestamp key) the last entry to this current one
+        prev_result = ts_history[len(ts_history) - 1].copy()
+        prev_result.pop('timestamp', None)
+        if cur_result == prev_result:
+            logger.debug('No changes; ignoring {}'.format(cur_result))
+            return False
+
+    # Change found...append entry to history
+    cur_ts_result = cur_result.copy()
+    cur_ts_result['timestamp'] = cur_ts
+    ts_history.append(cur_ts_result)
+    return True
 
 
 def finalize_target_file(target_file: Path, logger) -> bool:
