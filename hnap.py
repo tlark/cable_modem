@@ -254,4 +254,7 @@ class HNAPDevice:
         self.session.invalidate()
 
     def to_timestamp(self, date: str, time: str):
-        raise NotImplemented
+        raise NotImplementedError
+
+    def to_event_priority(self, level: int):
+        raise NotImplementedError

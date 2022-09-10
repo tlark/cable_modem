@@ -1,7 +1,8 @@
+-e git+https://github.com/tlark/cable_modem.git@f97e1eb5d7d0e425b03a4f3746e11a649539a09c#egg=cablemodem
 certifi==2022.6.15
 charset-normalizer==2.1.0
+coverage==6.4.4
 idna==3.3
 requests==2.28.1
-urllib3==1.26.11
-cablemodem==1.0
 schedule==1.1.0
+urllib3==1.26.11

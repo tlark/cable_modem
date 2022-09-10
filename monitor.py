@@ -8,8 +8,10 @@ from time import sleep
 import schedule
 
 import log_config
+from common import get_local_ip, append_stats_history
 from devices import create_device
 from hnap import HNAPDevice
+from models import EventLogEntry
 
 log_config.configure('monitor.log')
 logger = logging.getLogger('monitor')
@@ -29,6 +31,13 @@ class JobRunSummary:
 
     def __str__(self):
         return '{}({})'.format(self.__class__.__name__, self.__dict__)
+
+
+def log_client_event(device: HNAPDevice, level: int, desc: str):
+    event = EventLogEntry(timestamp=datetime.now(), priority=device.to_event_priority(level),
+                          desc='(Client {}): {}'.format(get_local_ip(), desc))
+    event_json = json.dumps(event, default=lambda o: o.__dict__)
+    append_stats_history(device, 'events', [event_json], logger)
 
 
 def setup(device_id: str, device_attrs: dict, action_ids: list, note: str) -> HNAPDevice:
@@ -68,19 +77,17 @@ def get_stats(device: HNAPDevice, stat_ids: list, job_run_history: list) -> None
                 continue
 
             output_filename = 'devices/{}/{}/{}.json'.format(device.device_id, stat_id, unique)
-            json_result = {}
             try:
                 json_result = stat_func()
-                logger.debug('Get {} stats complete for {}; results in {}'.format(stat_id, device, output_filename))
-            except Exception as e:
-                error_msg = 'Get {} stats FAILED ({}) for {}'.format(stat_id, e, device)
-                logger.warning(error_msg)
-                json_result = {'error': error_msg}
-                raise e
-            finally:
                 timestamped_json_result = {'timestamp': datetime.now().isoformat(), 'result': json_result}
                 with open(output_filename, 'w') as output_file:
                     output_file.write(json.dumps(timestamped_json_result, default=lambda o: o.__dict__))
+                logger.debug('Get {} stats complete for {}; results in {}'.format(stat_id, device, output_filename))
+            except Exception as e:
+                msg = 'Get {} stats FAILED ({}) for {}'.format(stat_id, e, device)
+                logger.warning(msg)
+                log_client_event(device, logging.WARNING, msg)
+                raise e
         logger.info('Get stats complete for {}'.format(device))
     except Exception:
         job_run_summary.succeeded = False
@@ -93,6 +100,7 @@ def reboot(device: HNAPDevice, job_run_history: list):
     job_run_summary = JobRunSummary('reboot')
     try:
         logger.info('reboot; job history={}'.format([(e.name, e.succeeded) for e in job_run_history]))
+        log_client_event(device, logging.CRITICAL, 'Rebooting {}'.format(device))
         device.reboot()
         # Pause monitoring while the device reboots
         logger.info('Waiting 60 seconds for {}'.format(device))
@@ -112,7 +120,9 @@ def ping(device: HNAPDevice, job_run_history: list):
     try:
         device.ping()
     except Exception as e:
-        logger.warning('ping FAILED ({}) for {}'.format(e, device))
+        msg = 'ping FAILED ({}) for {}'.format(e, device)
+        logger.warning(msg)
+        log_client_event(device, logging.WARNING, msg)
         job_run_summary.succeeded = False
         device.invalidate_session()
     finally:
@@ -145,7 +155,11 @@ def is_reboot_recommended(device: HNAPDevice, job_run_history: list) -> bool:
             succeeded = 1
 
     logger.debug('is_reboot_recommended: #succeeded={}, #failed={} for {}'.format(succeeded, failed, device))
-    return succeeded >= 2 and failed >= failed_threshold
+    recommended = (succeeded >= 2 and failed >= failed_threshold)
+    if recommended:
+        log_client_event(device, logging.INFO, 'Reboot is recommended since {} failures have occurred'.format(failed))
+
+    return recommended
 
 
 def main():

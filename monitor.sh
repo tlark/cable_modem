@@ -18,7 +18,7 @@ do
     printf "${action}..."
     fpath="${device}/${action}/${unique}"
 
-    python cable_modem.py "${device}" "${action}" > "${fpath}.json" 2> "${fpath}.err"
+    python api_tester.py "${device}" "${action}" > "${fpath}.json" 2> "${fpath}.err"
     success=$?
     if [ ${success} -eq 0 ]
     then

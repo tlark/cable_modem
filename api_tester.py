@@ -5,8 +5,8 @@ import logging
 import log_config
 from devices import create_device
 
-log_config.configure('cable_modem.log')
-logger = logging.getLogger('cable_modem')
+log_config.configure('api_tester.log')
+logger = logging.getLogger('api_tester')
 
 
 def main():

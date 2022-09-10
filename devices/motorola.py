@@ -7,6 +7,11 @@ from models import ConnectionSummary, ConnectionDetails, EventLogEntry, Downstre
 
 logger = logging.getLogger(__name__)
 
+level_priorities = {logging.INFO: "Notice (6)",
+                    logging.WARNING: "Warning (5)",
+                    logging.ERROR: "Error (4)",
+                    logging.CRITICAL: "Critical (3)"}
+
 
 class SetStatusSecuritySettings(HNAPCommand):
     def __init__(self):
@@ -162,3 +167,6 @@ class MotorolaDevice(HNAPDevice):
 
     def to_timestamp(self, date: str, time: str):
         return datetime.strptime('{} {}'.format(date, time), '%a %b %d %Y %H:%M:%S')
+
+    def to_event_priority(self, level: int):
+        return level_priorities.get(level, 'UNKNOWN {}'.format(level))
