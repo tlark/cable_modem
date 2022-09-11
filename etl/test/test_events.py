@@ -35,8 +35,18 @@ class TestEvents(TestCase):
         cur_events.append({"timestamp": "0001-01-01T00:00:01", "priority": "Critical (3)", "desc": "d1"})
         cur_events.append({"timestamp": "0001-01-01T00:00:01", "priority": "Critical (3)", "desc": "d2"})
         cur_events.append({"timestamp": "0001-01-01T00:00:01", "priority": "Critical (3)", "desc": "d3"})
+        cur_events.append({"timestamp": "0001-01-01T00:00:01", "priority": "Critical (3)", "desc": "d1"})
+        cur_events.append({"timestamp": "0001-01-01T00:00:01", "priority": "Critical (3)", "desc": "d2"})
+        cur_events.append({"timestamp": "0001-01-01T00:00:01", "priority": "Critical (3)", "desc": "d3"})
 
         act = combine_events(cur_events, device)
+        self.assertEqual(3, len(act))
+        self.assertEqual('d1', cur_events[0].get('desc', None))
+        self.assertEqual('d2', cur_events[1].get('desc', None))
+        self.assertEqual('d3', cur_events[2].get('desc', None))
+
+        # Check idempotency
+        act = combine_events(act, device)
         self.assertEqual(3, len(act))
         self.assertEqual('d1', cur_events[0].get('desc', None))
         self.assertEqual('d2', cur_events[1].get('desc', None))
@@ -47,14 +57,12 @@ class TestEvents(TestCase):
         cur_events.append({"timestamp": "2022-09-01T11:22:33", "priority": "Warning (2)", "desc": "w1"})
         cur_events.append({"timestamp": "0001-01-01T00:00:01", "priority": "Critical (3)", "desc": "d1"})
         cur_events.append({"timestamp": "0001-01-01T00:00:01", "priority": "Critical (3)", "desc": "d2"})
+        cur_events.append({"timestamp": "0001-01-01T00:00:01", "priority": "Critical (3)", "desc": "d1"})
+        cur_events.append({"timestamp": "0001-01-01T00:00:01", "priority": "Critical (3)", "desc": "d2"})
         cur_events.append({"timestamp": "2022-09-01T12:00:00", "priority": "Warning (2)", "desc": "w2"})
 
         act = combine_events(cur_events, device)
         self.assertEqual(4, len(act))
-        self.assertEqual('w1', act[0].get('desc', None))
-        self.assertEqual('d1', act[1].get('desc', None))
-        self.assertEqual('d2', act[2].get('desc', None))
-        self.assertEqual('w2', act[3].get('desc', None))
 
         # Verify synthetic timestamps are between the real timestamps
         real_1 = datetime.fromisoformat(act[0].get('timestamp', None))
@@ -63,3 +71,7 @@ class TestEvents(TestCase):
         synth_2 = datetime.fromisoformat(act[2].get('timestamp', None))
         self.assertTrue(real_1 <= synth_1 <= real_2)
         self.assertTrue(real_1 <= synth_2 <= real_2)
+
+        # Check idempotency
+        act = combine_events(act, device)
+        self.assertEqual(4, len(act))

@@ -253,8 +253,8 @@ class HNAPDevice:
     def invalidate_session(self):
         self.session.invalidate()
 
-    def to_timestamp(self, date: str, time: str):
-        raise NotImplementedError
+    def to_timestamp(self, date: str, time: str) -> datetime:
+        return datetime.strptime('{} {}'.format(date, time), '%Y-%m-%d %H:%M:%S')
 
-    def to_event_priority(self, level: int):
-        raise NotImplementedError
+    def to_event_priority(self, level: int) -> str:
+        return str(level)

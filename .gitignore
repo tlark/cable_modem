@@ -5,3 +5,4 @@
 **/motorola/
 /*.egg-info/
 *.log
+/test/devices/

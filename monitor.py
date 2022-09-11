@@ -8,7 +8,7 @@ from time import sleep
 import schedule
 
 import log_config
-from common import get_local_ip, append_stats_history
+from common import get_local_ip, build_unique_stats_path
 from devices import create_device
 from hnap import HNAPDevice
 from models import EventLogEntry
@@ -34,10 +34,16 @@ class JobRunSummary:
 
 
 def log_client_event(device: HNAPDevice, level: int, desc: str):
-    event = EventLogEntry(timestamp=datetime.now(), priority=device.to_event_priority(level),
+    ts = datetime.now()
+    event = EventLogEntry(timestamp=ts, priority=device.to_event_priority(level),
                           desc='(Client {}): {}'.format(get_local_ip(), desc))
-    event_json = json.dumps(event, default=lambda o: o.__dict__)
-    append_stats_history(device, 'events', [event_json], logger)
+    event_json = json.loads(json.dumps(event, default=lambda o: o.__dict__))
+
+    # Make this look like the other event files
+    timestamped_json_result = {'timestamp': ts.isoformat(), 'result': [event_json]}
+    stats_file = build_unique_stats_path(device, 'events')
+    with stats_file.open(mode='w') as file:
+        file.write(json.dumps(timestamped_json_result, default=lambda o: o.__dict__))
 
 
 def setup(device_id: str, device_attrs: dict, action_ids: list, note: str) -> HNAPDevice:
@@ -64,7 +70,6 @@ def setup(device_id: str, device_attrs: dict, action_ids: list, note: str) -> HN
 def get_stats(device: HNAPDevice, stat_ids: list, job_run_history: list) -> None:
     job_run_summary = JobRunSummary('get_stats')
     try:
-        unique = datetime.now().strftime('%Y%m%d_%H%M%S')
         for stat_id in stat_ids:
             stat_name = actions.get(stat_id, None)
             if not stat_name:
@@ -76,13 +81,13 @@ def get_stats(device: HNAPDevice, stat_ids: list, job_run_history: list) -> None
                 logger.error('Stat function "{}" not supported for {}'.format(stat_name, device))
                 continue
 
-            output_filename = 'devices/{}/{}/{}.json'.format(device.device_id, stat_id, unique)
             try:
+                stats_file = build_unique_stats_path(device, stat_id)
                 json_result = stat_func()
                 timestamped_json_result = {'timestamp': datetime.now().isoformat(), 'result': json_result}
-                with open(output_filename, 'w') as output_file:
-                    output_file.write(json.dumps(timestamped_json_result, default=lambda o: o.__dict__))
-                logger.debug('Get {} stats complete for {}; results in {}'.format(stat_id, device, output_filename))
+                with stats_file.open(mode='w') as file:
+                    file.write(json.dumps(timestamped_json_result, default=lambda o: o.__dict__))
+                logger.debug('Get {} stats complete for {}; results in {}'.format(stat_id, device, stats_file))
             except Exception as e:
                 msg = 'Get {} stats FAILED ({}) for {}'.format(stat_id, e, device)
                 logger.warning(msg)

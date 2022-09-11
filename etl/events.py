@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Tuple, Union, Any, List, Dict
+from typing import Tuple, Union, Any, List
 
 import log_config
 from devices import create_device
@@ -33,34 +33,25 @@ def get_event_ts(event: dict, synthetic_ts: datetime, device: HNAPDevice) -> Tup
 
 
 def process_unknown_ts_events(unknown_ts_events: List[EventLogEntry], cur_ts: datetime,
-                              combined_events: Dict[EventLogEntry, None]):
-    # Now, coerce any unknown timestamps based on this current event timestamp
-    prev_offset = None
-    prev_ts = cur_ts
+                              combined_events: List[EventLogEntry]):
+    # Coerce any unknown timestamps based on this current event timestamp
+    # Go back one second to differentiate these unknown events from real ones
+    cur_ts = cur_ts - timedelta(seconds=1)
     for unknown_ts_event in reversed(unknown_ts_events):
         unknown_ts = datetime.fromisoformat(unknown_ts_event.timestamp)
 
         # Since we need to keep going back in time, if the unknown ts has the SAME minute/second
         # as the previous one, manually increment it
         offset = timedelta(minutes=unknown_ts.minute, seconds=unknown_ts.second)
-        if offset == prev_offset:
-            backup_delta = prev_offset if prev_offset else offset
-        else:
-            backup_delta = ((prev_offset - offset) if prev_offset else offset)
-
-        new_ts = prev_ts - backup_delta
+        new_ts = cur_ts - offset
         unknown_ts_event.timestamp = new_ts.isoformat()
-        combined_events[unknown_ts_event] = None
-
-        prev_offset = offset
-        prev_ts = new_ts
+        combined_events.append(unknown_ts_event)
     unknown_ts_events.clear()
 
 
 def combine_events(events: List[dict], device: HNAPDevice) -> List[dict]:
     unknown_ts_events = []
-    # Use a dict instead of a set to preserve ts order
-    combined_events = {}
+    combined_events = []
     ts = None
     synthetic_ts = datetime.fromisoformat('1970-01-01T00:00:00')
 
@@ -72,30 +63,15 @@ def combine_events(events: List[dict], device: HNAPDevice) -> List[dict]:
         if ts.year <= 1970:
             unknown_ts_events.append(event_entry)
         else:
-            combined_events[event_entry] = None
+            combined_events.append(event_entry)
             process_unknown_ts_events(unknown_ts_events, ts, combined_events)
 
     # If the last event(s) in the file are unknown, process those now
     if unknown_ts_events:
         process_unknown_ts_events(unknown_ts_events, ts, combined_events)
 
-    combined_events_list = sorted(list(combined_events), key=lambda e: e.timestamp)
-    return json.loads(json.dumps(combined_events_list, default=lambda o: o.__dict__))
-
-
-def extract_events(src_file: Path) -> List[dict]:
-    if not src_file.exists():
-        logger.warning('{} does not exist'.format(src_file))
-        return list()
-
-    with src_file.open() as file:
-        logger.info('Processing {}'.format(src_file))
-        cur_events = json.load(file)
-
-    # 2 versions of source files exist: One with a list of events and one with 'result' value is the list of events
-    if not isinstance(cur_events, list):
-        cur_events = cur_events['result']
-    return cur_events
+    combined_events = json.loads(json.dumps(combined_events, default=lambda o: o.__dict__))
+    return sort_unique_ts_history(combined_events)
 
 
 def transform_events(cur_events: List[dict], combined_events_file: Path, device: HNAPDevice) -> bool:
@@ -120,6 +96,24 @@ def transform_events(cur_events: List[dict], combined_events_file: Path, device:
         logger.debug('Updating {} with {} entries'.format(combined_events_file, len(updated_events_history)))
         json.dump(updated_events_history, fp=json_file, default=lambda o: o.__dict__, sort_keys=True, indent=2)
     return True
+
+
+def extract_events(src_file: Path) -> List[dict]:
+    if not src_file.exists():
+        logger.warning('{} does not exist'.format(src_file))
+        return list()
+
+    with src_file.open() as file:
+        logger.info('Processing {}'.format(src_file))
+        cur_events = json.load(file)
+
+    # 3 versions of source files exist: One with a list of events and one with 'result' value is the list of events
+    if not isinstance(cur_events, list):
+        if 'result' in cur_events:
+            cur_events = cur_events['result']
+        else:
+            cur_events = [cur_events]
+    return cur_events
 
 
 def main():
