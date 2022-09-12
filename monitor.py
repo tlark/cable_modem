@@ -160,9 +160,11 @@ def is_reboot_recommended(device: HNAPDevice, job_run_history: list) -> bool:
             succeeded = 1
 
     logger.debug('is_reboot_recommended: #succeeded={}, #failed={} for {}'.format(succeeded, failed, device))
-    recommended = (succeeded >= 2 and failed >= failed_threshold)
+    recommended = succeeded >= 2 and failed >= failed_threshold
     if recommended:
-        log_client_event(device, logging.INFO, 'Reboot is recommended since {} failures have occurred'.format(failed))
+        msg = 'Reboot is recommended since {} failures have occurred'.format(failed)
+        logger.info(msg)
+        log_client_event(device, logging.INFO, msg)
 
     return recommended
 
