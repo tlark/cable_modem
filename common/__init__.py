@@ -18,8 +18,18 @@ def get_local_ip():
 
 
 def build_unique_stats_path(device: HNAPDevice, stat_type: str) -> Path:
-    unique = datetime.now().strftime('%Y%m%d_%H%M%S')
+    unique = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     return Path('devices', device.device_id, stat_type, '{}.json'.format(unique))
+
+
+def calc_stats_ts(file: Path) -> str:
+    for time_format in ['%Y%m%d_%H%M%S', '%Y%m%d_%H%M%S_%f']:
+        try:
+            return datetime.strptime(file.stem, time_format).isoformat()
+        except ValueError:
+            pass
+
+    return datetime.utcfromtimestamp(file.stat().st_ctime).isoformat()
 
 
 def build_stats_history_path(device: HNAPDevice, stat_type: str) -> Path:

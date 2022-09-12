@@ -2,7 +2,7 @@ import argparse
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 
 import schedule
@@ -31,6 +31,39 @@ class JobRunSummary:
 
     def __str__(self):
         return '{}({})'.format(self.__class__.__name__, self.__dict__)
+
+
+class DeviceMonitor:
+    def __init__(self, scheduler: schedule.Scheduler, check_interval: timedelta = None, device: HNAPDevice = None):
+        self.scheduler = scheduler
+        self.interval = int(check_interval.total_seconds()) if check_interval else 30
+        self.device = device
+        self.all_jobs_history = list()
+        self.check_job = None
+
+    def __str__(self):
+        if self.check_job:
+            job_status = 'Running (next at {}): {}'.format(self.check_job.next_run, self.check_job)
+        else:
+            job_status = 'Idle'
+        return '({}, #history={}, device={})'.format(job_status, len(self.all_jobs_history), self.device)
+
+    def start(self):
+        if self.check_job:
+            logger.debug('Device monitor start (already started): {}'.format(self))
+            return
+
+        self.check_job = self.scheduler.every(self.interval).seconds.do(ping, device_monitor=self)
+        self.check_job.run()
+        logger.info('Device monitor started (next at {}): {}'.format(self.check_job.next_run, self))
+
+    def cancel(self):
+        if not self.check_job:
+            logger.debug('Device monitor cancel (not running): {}'.format(self))
+            return
+        self.scheduler.cancel_job(self.check_job)
+        self.check_job = None
+        logger.info('Device monitor canceled: {}'.format(self))
 
 
 def log_client_event(device: HNAPDevice, level: int, desc: str):
@@ -67,8 +100,9 @@ def setup(device_id: str, device_attrs: dict, action_ids: list, note: str) -> HN
     return device
 
 
-def get_stats(device: HNAPDevice, stat_ids: list, job_run_history: list) -> None:
+def get_stats(stat_ids: list, device_monitor: DeviceMonitor) -> None:
     job_run_summary = JobRunSummary('get_stats')
+    device = device_monitor.device
     try:
         for stat_id in stat_ids:
             stat_name = actions.get(stat_id, None)
@@ -94,15 +128,19 @@ def get_stats(device: HNAPDevice, stat_ids: list, job_run_history: list) -> None
                 log_client_event(device, logging.WARNING, msg)
                 raise e
         logger.info('Get stats complete for {}'.format(device))
+        device_monitor.cancel()
     except Exception:
         job_run_summary.succeeded = False
+        device_monitor.start()
     finally:
         job_run_summary.completed_at = datetime.now()
-        job_run_history.append(job_run_summary)
+        device_monitor.all_jobs_history.append(job_run_summary)
 
 
-def reboot(device: HNAPDevice, job_run_history: list):
+def reboot(device_monitor: DeviceMonitor):
     job_run_summary = JobRunSummary('reboot')
+    device = device_monitor.device
+    job_run_history = device_monitor.all_jobs_history
     try:
         logger.info('reboot; job history={}'.format([(e.name, e.succeeded) for e in job_run_history]))
         log_client_event(device, logging.CRITICAL, 'Rebooting {}'.format(device))
@@ -120,8 +158,10 @@ def reboot(device: HNAPDevice, job_run_history: list):
     logger.info('reboot complete for {}'.format(device))
 
 
-def ping(device: HNAPDevice, job_run_history: list):
+def ping(device_monitor: DeviceMonitor):
     job_run_summary = JobRunSummary('ping')
+    device = device_monitor.device
+    job_run_history = device_monitor.all_jobs_history
     try:
         device.ping()
     except Exception as e:
@@ -136,7 +176,7 @@ def ping(device: HNAPDevice, job_run_history: list):
     logger.debug('ping complete for {}'.format(device))
 
     if job_run_summary.succeeded and is_reboot_recommended(device, job_run_history):
-        reboot(device, job_run_history)
+        reboot(device_monitor)
 
 
 def is_reboot_recommended(device: HNAPDevice, job_run_history: list) -> bool:
@@ -159,8 +199,9 @@ def is_reboot_recommended(device: HNAPDevice, job_run_history: list) -> bool:
             # Ignore succeeded ones before the first failure
             succeeded = 1
 
-    logger.debug('is_reboot_recommended: #succeeded={}, #failed={} for {}'.format(succeeded, failed, device))
     recommended = succeeded >= 2 and failed >= failed_threshold
+    logger.debug(
+        'is_reboot_recommended? {}: #succeeded={}, #failed={} for {}'.format(recommended, succeeded, failed, device))
     if recommended:
         msg = 'Reboot is recommended since {} failures have occurred'.format(failed)
         logger.info(msg)
@@ -191,19 +232,16 @@ def main():
 
     device = setup(args.device_id, device_attrs, stat_ids, args.note)
 
-    job_run_history = []
-
     scheduler = schedule.Scheduler()
-    ping_job = scheduler.every(args.check_interval).seconds.do(ping, device=device, job_run_history=job_run_history)
-    logger.info('Ping schedule (next at {}): {}'.format(ping_job.next_run, ping_job))
-    stats_job = scheduler.every(args.stats_interval).minutes.at(':00').do(get_stats, device=device, stat_ids=stat_ids,
-                                                                          job_run_history=job_run_history)
+    device_monitor = DeviceMonitor(scheduler, timedelta(seconds=args.check_interval), device)
+    stats_job = scheduler.every(args.stats_interval).minutes.at(':00').do(get_stats, stat_ids=stat_ids,
+                                                                          device_monitor=device_monitor)
     logger.info('Stats schedule (next at {}): {}'.format(stats_job.next_run, stats_job))
 
     # Reboot the device N times daily
     reboot_scheduler = schedule.Scheduler()
     for reboot_time in args.reboot_times:
-        job = reboot_scheduler.every().day.at(reboot_time).do(reboot, device=device, job_run_history=job_run_history)
+        job = reboot_scheduler.every().day.at(reboot_time).do(reboot, device_monitor=device_monitor)
         logger.info('Reboot schedule (next at {}): {}'.format(job.next_run, job))
 
     try:

@@ -23,6 +23,10 @@ def main():
     device = create_device(args.device_id)
     device.login(device_attrs['scheme'], device_attrs['host'], device_attrs['username'], device_attrs['password'])
 
+    if args.action == 'reboot':
+        device.reboot()
+        return
+
     if args.action == 'test':
         for command in device.get_commands():
             if command.read_only:
@@ -36,8 +40,6 @@ def main():
         print(json.dumps(device.get_connection_details(), default=lambda o: o.__dict__))
     elif args.action == 'events':
         print(json.dumps(device.get_events(), default=lambda o: o.__dict__))
-    elif args.action == 'reboot':
-        device.reboot()
 
     device.logout()
 

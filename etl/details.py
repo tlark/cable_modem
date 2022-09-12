@@ -1,11 +1,11 @@
 import argparse
 import json
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import List
 
 import log_config
+from common import calc_stats_ts
 from etl import finalize_target_files, compare_ts_history_with_current, TimestampedResult
 from models import ConnectionDetails, ChannelStats
 
@@ -14,14 +14,14 @@ logger = logging.getLogger('transformer')
 combined_file = 'details.json'
 
 
-def extract_connection_stats(input_file_path: Path) -> TimestampedResult:
-    with input_file_path.open() as json_file:
-        logger.info('Processing {}'.format(input_file_path))
+def extract_connection_stats(src_file: Path) -> TimestampedResult:
+    with src_file.open() as json_file:
+        logger.info('Processing {}'.format(src_file))
         json_stats = json.load(json_file)
 
     # json_stats will be a dict that SHOULD contain 'timestamp', 'result' keys
     # If not, calculate the timestamp from the filename
-    timestamp = json_stats.get('timestamp', datetime.strptime(input_file_path.stem, '%Y%m%d_%H%M%S').isoformat())
+    timestamp = json_stats.get('timestamp', calc_stats_ts(src_file))
     result = json_stats.get('result', json_stats)
     if 'error' in result:
         return TimestampedResult(timestamp=timestamp, error=result['error'])

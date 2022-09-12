@@ -1,10 +1,10 @@
 import argparse
 import json
 import logging
-from datetime import datetime
 from pathlib import Path
 
 import log_config
+from common import calc_stats_ts
 from etl import finalize_target_files, compare_ts_history_with_current, TimestampedResult
 from models import ConnectionSummary
 
@@ -20,7 +20,7 @@ def extract_summary(src_file: Path) -> TimestampedResult:
 
     # json_stats will be a dict that SHOULD contain 'timestamp', 'result' keys
     # If not, calculate the timestamp from the filename
-    timestamp = json_stats.get('timestamp', datetime.strptime(src_file.stem, '%Y%m%d_%H%M%S').isoformat())
+    timestamp = json_stats.get('timestamp', calc_stats_ts(src_file))
     result = json_stats.get('result', json_stats)
     if 'error' in result:
         return TimestampedResult(timestamp=timestamp, error=result['error'])
