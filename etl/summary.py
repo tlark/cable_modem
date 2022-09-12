@@ -72,7 +72,12 @@ def main():
     processed_path.mkdir(exist_ok=True)
     combined_summaries_file = root_path / Path(combined_file)
 
-    src_files = sorted(root_path.glob('2022*.json'))
+    src_file_pattern = '2022*.json'
+    src_files = sorted(root_path.glob(src_file_pattern))
+    if not src_files:
+        logger.info('No source files from {}/{}'.format(root_path, src_file_pattern))
+        return
+
     logger.info('Checking {} files in {}'.format(len(src_files), root_path))
     for src_file in src_files:
         summary = extract_summary(src_file)

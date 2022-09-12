@@ -131,7 +131,12 @@ def main():
 
     device = create_device(args.device_id)
 
-    src_files = sorted(root_path.glob('2022*.json'))
+    src_file_pattern = '2022*.json'
+    src_files = sorted(root_path.glob(src_file_pattern))
+    if not src_files:
+        logger.info('No source files from {}/{}'.format(root_path, src_file_pattern))
+        return
+
     logger.info('Checking {} files in {}'.format(len(src_files), root_path))
     for src_file in src_files:
         events = extract_events(src_file)

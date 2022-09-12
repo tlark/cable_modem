@@ -52,6 +52,7 @@ def finalize_target_file(target_file: Path, logger) -> bool:
     with target_file.open(mode='w') as json_file:
         logger.debug('Updating {} from {} to {} entries'.format(target_file, len(ts_history), len(unique_ts_history)))
         json.dump(unique_ts_history, fp=json_file, default=lambda o: o.__dict__, sort_keys=True, indent=2)
+    return True
 
 
 def finalize_target_files(root_path: Path, target_file_patterns: list, logger):
