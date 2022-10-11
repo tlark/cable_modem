@@ -230,7 +230,20 @@ def main():
     device_attrs = supported_devices.get(args.device_id)
     stat_ids = [a for a in wanted_stats if a in device_attrs['supported_actions']]
 
-    device = setup(args.device_id, device_attrs, stat_ids, args.note)
+    # In case the device is not quite ready, allow a few retries
+    setup_pause = 10
+    setup_failure = None
+    device = None
+    for r in range(1, 7):
+        try:
+            device = setup(args.device_id, device_attrs, stat_ids, args.note)
+            setup_failure = None
+            break
+        except Exception as setup_failure:
+            logger.info('setup attempt {} FAILED...retry in {} seconds; {}'.format(r, setup_pause, setup_failure))
+            sleep(setup_pause)
+    if setup_failure:
+        raise setup_failure
 
     scheduler = schedule.Scheduler()
     device_monitor = DeviceMonitor(scheduler, timedelta(seconds=args.check_interval), device)
@@ -252,7 +265,6 @@ def main():
             sleep(5)
     except KeyboardInterrupt:
         device.logout()
-        pass
 
 
 if __name__ == '__main__':
