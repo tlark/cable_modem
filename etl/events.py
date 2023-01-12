@@ -131,7 +131,7 @@ def main():
 
     device = create_device(args.device_id)
 
-    src_file_pattern = '2022*.json'
+    src_file_pattern = '20*.json'
     src_files = sorted(root_path.glob(src_file_pattern))
     if not src_files:
         logger.info('No source files from {}/{}'.format(root_path, src_file_pattern))
